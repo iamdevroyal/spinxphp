@@ -5,7 +5,4 @@
 /Dockerfile export-ignore
 /phpstan.neon export-ignore
 /SPINX_BUILD_SPEC.md export-ignore
-/docs export-ignore
 /tests export-ignore
-/tools export-ignore
-/examples export-ignore

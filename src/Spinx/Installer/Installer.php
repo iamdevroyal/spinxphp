@@ -225,10 +225,11 @@ final class Installer
     {
         $this->writeln($this->dim("    ── {$label} connection details ──"));
         $driver   = $label === 'MySQL' ? 'pdo_mysql' : 'pdo_pgsql';
+        $defaultUser = $label === 'MySQL' ? 'root' : 'postgres';
         $host     = $this->ask('Database host', '127.0.0.1');
         $port     = $this->ask('Database port', $defaultPort);
         $database = $this->ask('Database name', 'spinx');
-        $username = $this->ask('Database username', 'root');
+        $username = $this->ask('Database username', $defaultUser);
         $password = $this->ask('Database password', '');
 
         return compact('driver', 'host', 'port', 'database', 'username', 'password');
