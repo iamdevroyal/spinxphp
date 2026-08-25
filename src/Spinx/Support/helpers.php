@@ -46,3 +46,67 @@ if (!function_exists('config')) {
         return Config::instance()->get($key, $default);
     }
 }
+
+if (!function_exists('base_path')) {
+    /**
+     * Get the path to the base of the install.
+     */
+    function base_path(string $path = ''): string
+    {
+        $root = defined('SPINX_BASE_PATH')
+            ? (string) constant('SPINX_BASE_PATH')
+            : (defined('SPINX_PROJECT_ROOT') ? (string) constant('SPINX_PROJECT_ROOT') : dirname(__DIR__, 3));
+
+        return $path === '' ? $root : $root . '/' . ltrim($path, '/\\');
+    }
+}
+
+if (!function_exists('storage_path')) {
+    /**
+     * Get the path to the storage folder.
+     */
+    function storage_path(string $path = ''): string
+    {
+        return base_path('storage' . ($path === '' ? '' : '/' . ltrim($path, '/\\')));
+    }
+}
+
+if (!function_exists('app_path')) {
+    /**
+     * Get the path to the application folder.
+     */
+    function app_path(string $path = ''): string
+    {
+        return base_path('app' . ($path === '' ? '' : '/' . ltrim($path, '/\\')));
+    }
+}
+
+if (!function_exists('config_path')) {
+    /**
+     * Get the path to the config folder.
+     */
+    function config_path(string $path = ''): string
+    {
+        return base_path('config' . ($path === '' ? '' : '/' . ltrim($path, '/\\')));
+    }
+}
+
+if (!function_exists('public_path')) {
+    /**
+     * Get the path to the public folder.
+     */
+    function public_path(string $path = ''): string
+    {
+        return base_path('public' . ($path === '' ? '' : '/' . ltrim($path, '/\\')));
+    }
+}
+
+if (!function_exists('resource_path')) {
+    /**
+     * Get the path to the resources folder.
+     */
+    function resource_path(string $path = ''): string
+    {
+        return base_path('resources' . ($path === '' ? '' : '/' . ltrim($path, '/\\')));
+    }
+}

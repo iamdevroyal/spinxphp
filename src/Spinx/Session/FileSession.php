@@ -28,9 +28,11 @@ final class FileSession implements SessionInterface
     private array $data         = [];
     private string $storageDir  = '';
 
-    public function __construct(string $storageDir)
+    public function __construct(string $storageDir = '')
     {
-        $this->storageDir = rtrim($storageDir, '/\\');
+        $this->storageDir = $storageDir !== ''
+            ? rtrim($storageDir, '/\\')
+            : storage_path('sessions');
     }
 
     public function get(string $key, mixed $default = null): mixed

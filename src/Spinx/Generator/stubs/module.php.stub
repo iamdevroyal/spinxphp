@@ -2,43 +2,37 @@
 
 declare(strict_types=1);
 
+use Spinx\Routing\AliasRegistry;
+use Spinx\Routing\Route;
+use Spinx\Routing\RouteBuilder;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\Routing\RouteCollection;
 
 /**
  * {{MODULE}} module manifest.
  *
  * This is the ONLY place this module's routes and DI bindings are
  * registered — the ModuleLoader (src/Spinx/Routing/ModuleLoader.php) is the
- * only code path that reads this file. See build spec §5.
- *
- * Add controllers under Infrastructure/Http/Controllers, register them in
- * the "services" closure below, then bind their routes in "routes".
- *
- * Every service registered here is REQUEST-SCOPED by default — reset
- * fresh at the start of every request so nothing leaks across requests on
- * a persistent worker/coroutine (build spec §4). If a service is
- * genuinely safe to persist across requests (stateless, no mutable
- * per-request data), opt it out explicitly:
- *
- *   use Spinx\Container\Attribute\Singleton;
- *
- *   #[Singleton]
- *   final class PriceFormatter { ... }
+ * only code path that reads this file.
  */
 return [
-    'routes' => static function (RouteCollection $routes, string $moduleDir): void {
-        // Example:
-        // $routes->add('{{MODULE_SNAKE}}.index', new Route(
-        //     '/{{MODULE_SNAKE}}',
-        //     defaults: ['_controller' => \App\Modules\{{MODULE}}\Infrastructure\Http\Controllers\ExampleController::class],
-        //     methods: ['GET']
-        // ));
+    // Register controller aliases for use in Route::*()->controller('alias')
+    'controllers' => static function (AliasRegistry $r): void {
+        // $r->registerController('{{MODULE_SNAKE}}_index', \App\Modules\{{MODULE}}\Infrastructure\Http\Controllers\{{MODULE}}Controller::class);
     },
 
+    // Register middleware aliases
+    'middlewares' => static function (AliasRegistry $r): void {
+        // $r->registerMiddleware('auth', \Spinx\Auth\Middleware\AuthMiddleware::class);
+    },
+
+    // Declare routes using the fluent Route:: DSL
+    'routes' => static function (RouteBuilder $routes): void {
+        // Route::get(['{{MODULE_SNAKE}}.index', '/{{MODULE_SNAKE}}'])->controller('{{MODULE_SNAKE}}_index');
+    },
+
+    // Non-controller / non-middleware DI bindings
     'services' => static function (ContainerBuilder $container, string $moduleDir): void {
-        // Example:
-        // $container->register(\App\Modules\{{MODULE}}\Infrastructure\Http\Controllers\ExampleController::class)
+        // $container->register(\App\Modules\{{MODULE}}\Domain\Repositories\{{MODULE}}RepositoryInterface::class, \App\Modules\{{MODULE}}\Infrastructure\Repositories\{{MODULE}}Repository::class)
         //     ->setAutowired(true)
         //     ->setPublic(true);
     },

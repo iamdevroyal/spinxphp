@@ -33,6 +33,9 @@ final class Kernel
         private readonly string $projectRoot,
         private readonly bool $debug = false,
     ) {
+        if (!defined('SPINX_BASE_PATH')) {
+            define('SPINX_BASE_PATH', $this->projectRoot);
+        }
     }
 
     public function boot(): void

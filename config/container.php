@@ -95,7 +95,7 @@ return static function (ContainerConfigurator $configurator): void {
         ->args(['%spinx.project_root%/storage/sessions'])
         ->public();
 
-    $services->set(\Spinx\Session\SessionInterface::class, \Spinx\Session\FileSession::class)
+    $services->alias(\Spinx\Session\SessionInterface::class, \Spinx\Session\FileSession::class)
         ->public();
 
     $services->set(\Spinx\Auth\Middleware\AuthMiddleware::class)

@@ -6,6 +6,9 @@ declare(strict_types=1);
 // This script lives at the project root so __DIR__ IS the
 // project root directly.
 $projectRoot = __DIR__;
+if (!defined('SPINX_BASE_PATH')) {
+    define('SPINX_BASE_PATH', $projectRoot);
+}
 
 $autoload = $projectRoot . '/vendor/autoload.php';
 if (is_file($autoload)) {
@@ -472,7 +475,9 @@ function migrateCommand(string $projectRoot, ?string $moduleName): void
         exit(1);
     }
 
-    $container = (new \Spinx\Container\ContainerFactory($projectRoot))->build();
+    $kernel = new \Spinx\Kernel\Kernel($projectRoot);
+    $kernel->boot();
+    $container = $kernel->getContainer();
     $migrator = $container->get(\Spinx\Database\Migrator::class);
 
     if ($moduleName !== null) {

@@ -20,26 +20,19 @@ final class MiddlewareGenerator extends AbstractGenerator
             '{{CLASS}}' => $className,
         ]));
 
-        $snippet = <<<PHP
-            // Attach to a route in app/Modules/{$moduleName}/module.php by
-            // adding a '_middleware' default alongside '_controller' — the
-            // first class listed runs first (outermost wrapper):
-            \$routes->add('some.route', new Route(
-                '/some-path',
-                defaults: [
-                    '_controller' => SomeController::class,
-                    '_middleware' => [\\App\\Modules\\{$moduleName}\\Infrastructure\\Http\\Middleware\\{$className}::class],
-                ],
-                methods: ['GET']
-            ));
+        $base = preg_replace('/Middleware$/', '', $className);
+        $alias = self::toSnakeCase($base);
 
-            // If the middleware has constructor dependencies, register it
-            // in 'services' too so the container can autowire them —
-            // setPublic(true) is required, same as controllers, since
-            // Pipeline resolves middleware via \$container->get() directly:
-            \$container->register(\\App\\Modules\\{$moduleName}\\Infrastructure\\Http\\Middleware\\{$className}::class)
-                ->setAutowired(true)
-                ->setPublic(true);
+        $snippet = <<<PHP
+            // Paste into app/Modules/{$moduleName}/module.php:
+
+            // in 'middlewares':
+            \$r->registerMiddleware('{$alias}', \\App\\Modules\\{$moduleName}\\Infrastructure\\Http\\Middleware\\{$className}::class);
+
+            // in 'routes':
+            Route::get(['some.route', '/some-path'])
+                ->middleware(['{$alias}'])
+                ->controller('some_controller');
             PHP;
 
         return ['files' => [$path], 'snippet' => $snippet];
