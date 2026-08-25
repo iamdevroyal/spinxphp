@@ -2,37 +2,48 @@
 
 declare(strict_types=1);
 
-use App\Modules\Auth\Infrastructure\Http\Controllers\DashboardController;
-use App\Modules\Auth\Infrastructure\Http\Controllers\LoginShowController;
-use App\Modules\Auth\Infrastructure\Http\Controllers\LoginSubmitController;
-use App\Modules\Auth\Infrastructure\Http\Controllers\LogoutController;
-use App\Modules\Auth\Infrastructure\Http\Controllers\RegisterShowController;
-use App\Modules\Auth\Infrastructure\Http\Controllers\RegisterSubmitController;
+use App\Modules\Auth\Application\Services\AuthService;
+use App\Modules\Auth\Domain\Repositories\UserRepositoryInterface;
+use App\Modules\Auth\Infrastructure\Http\Controllers\AuthController;
+use App\Modules\Auth\Infrastructure\Repositories\UserRepository;
 use Spinx\Auth\Middleware\AuthMiddleware;
 use Spinx\Auth\Middleware\GuestMiddleware;
 use Spinx\Http\Middleware\CsrfMiddleware;
 use Spinx\Routing\AliasRegistry;
 use Spinx\Routing\Route;
 use Spinx\Routing\RouteBuilder;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * Auth module — Reference authentication module for Spinx.
  *
- * Demonstrates:
- *  - Single-responsibility DDD controllers
- *  - Form CSRF protection via CsrfMiddleware & @csrf directive
+ * Demonstrates Strict Domain-Driven Design (DDD) & Multi-Action Controller Routing:
+ *  - Domain: User entity & UserRepositoryInterface
+ *  - Application: AuthService encapsulating registration, password hashing & session auth
+ *  - Infrastructure: UserRepository DB persistence & unified AuthController
+ *  - CSRF protection via CsrfMiddleware & @csrf directive
  *  - AuthMiddleware and GuestMiddleware session guards
- *  - Passwords hashed via Argon2id (Spinx\Auth\Hash)
- *  - Active Record User model persistence
  */
 return [
+    'services' => static function (ContainerBuilder $c, string $moduleDir): void {
+        $c->register(UserRepository::class)
+            ->setAutowired(true)
+            ->setPublic(true);
+
+        $c->setAlias(UserRepositoryInterface::class, UserRepository::class)
+            ->setPublic(true);
+
+        $c->register(AuthService::class)
+            ->setAutowired(true)
+            ->setPublic(true);
+
+        $c->register(AuthController::class)
+            ->setAutowired(true)
+            ->setPublic(true);
+    },
+
     'controllers' => static function (AliasRegistry $r): void {
-        $r->registerController('auth_login_show',       LoginShowController::class);
-        $r->registerController('auth_login_submit',     LoginSubmitController::class);
-        $r->registerController('auth_register_show',    RegisterShowController::class);
-        $r->registerController('auth_register_submit',  RegisterSubmitController::class);
-        $r->registerController('auth_logout',           LogoutController::class);
-        $r->registerController('auth_dashboard',        DashboardController::class);
+        $r->registerController('auth', AuthController::class);
     },
 
     'middlewares' => static function (AliasRegistry $r): void {
@@ -45,27 +56,27 @@ return [
         // Guest Routes (Login & Register)
         Route::get(['auth.login', '/login'])
             ->middleware(['guest', 'csrf'])
-            ->controller('auth_login_show');
+            ->controller('auth@showLogin');
 
         Route::post(['auth.login.submit', '/login'])
             ->middleware(['guest', 'csrf'])
-            ->controller('auth_login_submit');
+            ->controller('auth@login');
 
         Route::get(['auth.register', '/register'])
             ->middleware(['guest', 'csrf'])
-            ->controller('auth_register_show');
+            ->controller('auth@showRegister');
 
         Route::post(['auth.register.submit', '/register'])
             ->middleware(['guest', 'csrf'])
-            ->controller('auth_register_submit');
+            ->controller('auth@register');
 
         // Authenticated Protected Routes
         Route::post(['auth.logout', '/logout'])
             ->middleware(['auth', 'csrf'])
-            ->controller('auth_logout');
+            ->controller('auth@logout');
 
         Route::get(['auth.dashboard', '/dashboard'])
             ->middleware(['auth', 'csrf'])
-            ->controller('auth_dashboard');
+            ->controller('auth@dashboard');
     },
 ];

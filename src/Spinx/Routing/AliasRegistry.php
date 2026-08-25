@@ -36,13 +36,40 @@ final class AliasRegistry
 
     public function hasController(string $alias): bool
     {
-        return isset($this->controllers[$alias]);
+        if (str_contains($alias, '@')) {
+            [$baseAlias] = explode('@', $alias, 2);
+            return isset($this->controllers[$baseAlias]) || class_exists($baseAlias);
+        }
+
+        return isset($this->controllers[$alias]) || class_exists($alias);
     }
 
     /** @throws \RuntimeException If the alias is not registered */
     public function resolveController(string $alias): string
     {
-        return $this->controllers[$alias] ?? throw new \RuntimeException(
+        if (str_contains($alias, '@')) {
+            [$baseAlias, $method] = explode('@', $alias, 2);
+            $baseClass = $this->controllers[$baseAlias] ?? (class_exists($baseAlias) ? $baseAlias : null);
+
+            if ($baseClass === null) {
+                throw new \RuntimeException(
+                    "Controller alias \"{$baseAlias}\" is not registered. " .
+                    "Add it to the 'controllers' closure in the relevant module.php."
+                );
+            }
+
+            return "{$baseClass}@{$method}";
+        }
+
+        if (isset($this->controllers[$alias])) {
+            return $this->controllers[$alias];
+        }
+
+        if (class_exists($alias)) {
+            return $alias;
+        }
+
+        throw new \RuntimeException(
             "Controller alias \"{$alias}\" is not registered. " .
             "Add it to the 'controllers' closure in the relevant module.php."
         );
@@ -65,13 +92,21 @@ final class AliasRegistry
 
     public function hasMiddleware(string $alias): bool
     {
-        return isset($this->middlewares[$alias]);
+        return isset($this->middlewares[$alias]) || class_exists($alias);
     }
 
     /** @throws \RuntimeException If the alias is not registered */
     public function resolveMiddleware(string $alias): string
     {
-        return $this->middlewares[$alias] ?? throw new \RuntimeException(
+        if (isset($this->middlewares[$alias])) {
+            return $this->middlewares[$alias];
+        }
+
+        if (class_exists($alias)) {
+            return $alias;
+        }
+
+        throw new \RuntimeException(
             "Middleware alias \"{$alias}\" is not registered. " .
             "Add it to the 'middlewares' closure in the relevant module.php."
         );
@@ -98,8 +133,9 @@ final class AliasRegistry
     public function registerServicesInContainer(ContainerBuilder $container): void
     {
         foreach ([...$this->controllers, ...$this->middlewares] as $class) {
-            if (!$container->has($class)) {
-                $container->register($class)
+            $baseClass = str_contains($class, '@') ? explode('@', $class, 2)[0] : $class;
+            if (class_exists($baseClass) && !$container->has($baseClass)) {
+                $container->register($baseClass)
                     ->setAutowired(true)
                     ->setPublic(true);
             }

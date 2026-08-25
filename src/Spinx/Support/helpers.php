@@ -139,6 +139,48 @@ if (!function_exists('redirect')) {
      */
     function redirect(string $to, int $status = 302): \Symfony\Component\HttpFoundation\RedirectResponse
     {
-        return new \Symfony\Component\HttpFoundation\RedirectResponse($to, $status);
+        return \Spinx\Http\Response::redirect($to, $status);
+    }
+}
+
+if (!function_exists('request')) {
+    /**
+     * Get the active Request instance or an input value.
+     */
+    function request(?string $key = null, mixed $default = null): mixed
+    {
+        if ($key === null) {
+            return \Spinx\Http\Request::instance();
+        }
+
+        return \Spinx\Http\Request::input($key, $default);
+    }
+}
+
+if (!function_exists('response')) {
+    /**
+     * Create a response or get the Response factory.
+     */
+    function response(mixed $content = '', int $status = 200, array $headers = []): \Symfony\Component\HttpFoundation\Response|\Spinx\Http\Response
+    {
+        if (func_num_args() === 0) {
+            return new \Spinx\Http\Response();
+        }
+
+        if (is_array($content)) {
+            return \Spinx\Http\Response::json($content, $status, $headers);
+        }
+
+        return \Spinx\Http\Response::make((string) $content, $status, $headers);
+    }
+}
+
+if (!function_exists('view')) {
+    /**
+     * Render a template and return a Symfony Response.
+     */
+    function view(string $template, array $data = [], int $status = 200, array $headers = []): \Symfony\Component\HttpFoundation\Response
+    {
+        return \Spinx\Templating\View::render($template, $data, $status, $headers);
     }
 }

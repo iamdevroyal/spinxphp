@@ -42,12 +42,7 @@ final class ModuleLoader
             $container->addResource(new \Symfony\Component\Config\Resource\FileResource($this->projectRoot . '/spinx.json'));
         }
 
-        $this->ensureAliasesPopulated();
-
-        // Auto-register all aliased controllers and middlewares into the container.
-        $this->aliasRegistry->registerServicesInContainer($container);
-
-        // Run 'services' closures for non-alias DI bindings.
+        // Run 'services' closures first for non-alias DI bindings (e.g. interfaces, repositories).
         foreach ($this->discoverModules() as $moduleDir) {
             if (is_file($moduleDir . '/module.php')) {
                 $container->addResource(new \Symfony\Component\Config\Resource\FileResource($moduleDir . '/module.php'));
@@ -66,16 +61,23 @@ final class ModuleLoader
             }
         }
 
+        $this->ensureAliasesPopulated();
+
+        // Auto-register all aliased controllers and middlewares into the container.
+        $this->aliasRegistry->registerServicesInContainer($container);
+
         // Tag all alias-registered services too so RequestScopePass handles them.
         foreach ($this->aliasRegistry->allControllers() as $class) {
-            if ($container->has($class)) {
-                $container->getDefinition($class)->addTag('spinx.module_service');
+            $baseClass = str_contains($class, '@') ? explode('@', $class, 2)[0] : $class;
+            if ($container->has($baseClass)) {
+                $container->getDefinition($baseClass)->addTag('spinx.module_service');
             }
         }
 
         foreach ($this->aliasRegistry->allMiddlewares() as $class) {
-            if ($container->has($class)) {
-                $container->getDefinition($class)->addTag('spinx.module_service');
+            $baseClass = str_contains($class, '@') ? explode('@', $class, 2)[0] : $class;
+            if ($container->has($baseClass)) {
+                $container->getDefinition($baseClass)->addTag('spinx.module_service');
             }
         }
     }

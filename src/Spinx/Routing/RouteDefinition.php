@@ -35,13 +35,28 @@ final class RouteDefinition
     }
 
     /**
-     * @param string $aliasOrClass Controller alias (from 'controllers' closure) or a FQCN
+     * @param string|array{0: string|object, 1: string} $aliasOrClass Controller alias, FQCN, or [Class, method]
      */
-    public function controller(string $aliasOrClass): static
+    public function controller(string|array $aliasOrClass, ?string $method = null): static
     {
-        $this->controller = $aliasOrClass;
+        if (is_array($aliasOrClass)) {
+            $class = is_object($aliasOrClass[0]) ? get_class($aliasOrClass[0]) : (string) $aliasOrClass[0];
+            $this->controller = "{$class}@{$aliasOrClass[1]}";
+        } elseif ($method !== null) {
+            $this->controller = "{$aliasOrClass}@{$method}";
+        } else {
+            $this->controller = $aliasOrClass;
+        }
 
         return $this;
+    }
+
+    /**
+     * Alias for controller()
+     */
+    public function action(string|array $action): static
+    {
+        return $this->controller($action);
     }
 
     /** @return string[] */

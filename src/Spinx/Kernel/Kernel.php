@@ -24,7 +24,7 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
  */
 final class Kernel
 {
-    public const VERSION = '1.0.12';
+    public const VERSION = '1.0.13';
 
     private ContainerInterface $container;
     private RouteCollection $routes;
@@ -85,6 +85,11 @@ final class Kernel
             \Spinx\Log\Log::setManager($this->container->get(\Spinx\Log\LogManager::class));
         }
 
+        // Boot View Facade
+        if ($this->container->has(\Spinx\Templating\TemplateRenderer::class)) {
+            \Spinx\Templating\View::setRenderer($this->container->get(\Spinx\Templating\TemplateRenderer::class));
+        }
+
         $this->routes = $this->compileRoutes();
         $this->requestScope = new RequestScope(
             $this->container,
@@ -124,6 +129,8 @@ final class Kernel
         if (!$this->booted) {
             throw new \LogicException('Kernel::boot() must be called before handle().');
         }
+
+        \Spinx\Http\Request::setCurrentRequest($request);
 
         // Reset request-scoped services FIRST, before any application code
         // runs, so nothing from a previous request on this worker/coroutine
@@ -250,32 +257,50 @@ final class Kernel
         return $routes;
     }
 
-    /**
-     * Controllers are declared in module.php as either:
-     *   - "App\Modules\Orders\Infrastructure\Http\Controllers\ListOrders::class"
-     *     (resolved through the DI container, so constructor deps are injected)
-     *   - a closure (rare — mainly for framework-internal routes)
-     */
     private function resolveController(mixed $controller): callable
     {
         if (is_callable($controller)) {
             return $controller;
         }
 
-        if (is_string($controller) && $this->container->has($controller)) {
-            $instance = $this->container->get($controller);
+        // Support "ControllerClass@method" syntax
+        if (is_string($controller) && str_contains($controller, '@')) {
+            [$class, $method] = explode('@', $controller, 2);
+            $instance = $this->container->has($class) ? $this->container->get($class) : (class_exists($class) ? new $class() : null);
 
-            if (is_callable($instance)) {
-                return $instance;
+            if ($instance !== null && method_exists($instance, $method)) {
+                return [$instance, $method];
             }
 
-            if (method_exists($instance, '__invoke')) {
-                return $instance;
+            throw new \RuntimeException(sprintf(
+                'Method "%s" does not exist on controller "%s".',
+                $method,
+                $class
+            ));
+        }
+
+        // Support [ControllerClass, 'method'] syntax
+        if (is_array($controller) && count($controller) === 2) {
+            [$class, $method] = $controller;
+            $instance = is_object($class) ? $class : ($this->container->has($class) ? $this->container->get($class) : (class_exists((string) $class) ? new $class() : null));
+
+            if ($instance !== null && method_exists($instance, (string) $method)) {
+                return [$instance, (string) $method];
+            }
+        }
+
+        if (is_string($controller)) {
+            $instance = $this->container->has($controller) ? $this->container->get($controller) : (class_exists($controller) ? new $controller() : null);
+
+            if ($instance !== null) {
+                if (is_callable($instance) || method_exists($instance, '__invoke')) {
+                    return $instance;
+                }
             }
         }
 
         throw new \RuntimeException(sprintf(
-            'Controller "%s" could not be resolved. Controllers must be invokable and registered in the container via module.php.',
+            'Controller "%s" could not be resolved. Controllers must be callable or define an action method and be registered in the container via module.php.',
             is_string($controller) ? $controller : get_debug_type($controller)
         ));
     }
