@@ -115,6 +115,35 @@ switch ($command) {
         logsCommand($projectRoot, $argv);
         break;
 
+    case 'cache:clear':
+        cacheClearCommand($projectRoot);
+        break;
+
+    case 'cache:forget':
+        cacheForgetCommand($projectRoot, $argv[2] ?? null);
+        break;
+
+    case 'view:clear':
+        viewClearCommand($projectRoot);
+        break;
+
+    case 'container:clear':
+    case 'config:clear':
+        containerClearCommand($projectRoot);
+        break;
+
+    case 'schema:clear':
+        schemaClearCommand($projectRoot);
+        break;
+
+    case 'optimize:clear':
+        optimizeClearCommand($projectRoot);
+        break;
+
+    case 'optimize':
+        optimizeCommand($projectRoot);
+        break;
+
     case null:
     case 'help':
     case '--help':
@@ -1152,6 +1181,121 @@ function logsCommand(string $projectRoot, array $argv): void
     }
 }
 
+function cacheClearCommand(string $projectRoot): void
+{
+    $cacheDir = $projectRoot . '/storage/cache/data';
+    $count = 0;
+
+    if (is_dir($cacheDir)) {
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($cacheDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($files as $file) {
+            if ($file->isDir()) {
+                @rmdir($file->getRealPath());
+            } else {
+                @unlink($file->getRealPath());
+                $count++;
+            }
+        }
+    }
+
+    fwrite(STDOUT, "\033[32m[Spinx]\033[0m Application cache cleared successfully ({$count} entries removed).\n");
+}
+
+function cacheForgetCommand(string $projectRoot, ?string $key): void
+{
+    if ($key === null || trim($key) === '') {
+        fwrite(STDERR, "[Spinx] Usage: spinx cache:forget <key>\n");
+        exit(1);
+    }
+
+    $hash = sha1($key);
+    $parts = array_slice(str_split($hash, 2), 0, 2);
+    $path = $projectRoot . '/storage/cache/data/' . implode('/', $parts) . '/' . $hash;
+
+    if (is_file($path)) {
+        @unlink($path);
+        fwrite(STDOUT, "\033[32m[Spinx]\033[0m Key [{$key}] forgotten from cache.\n");
+    } else {
+        fwrite(STDOUT, "[Spinx] Key [{$key}] was not found in cache.\n");
+    }
+}
+
+function viewClearCommand(string $projectRoot): void
+{
+    $viewsDir = $projectRoot . '/storage/cache/views';
+    $count = 0;
+
+    if (is_dir($viewsDir)) {
+        $files = glob($viewsDir . '/*.php') ?: [];
+        foreach ($files as $file) {
+            @unlink($file);
+            $count++;
+        }
+    }
+
+    fwrite(STDOUT, "\033[32m[Spinx]\033[0m Compiled views cleared successfully ({$count} views removed).\n");
+}
+
+function containerClearCommand(string $projectRoot): void
+{
+    $cacheDir = $projectRoot . '/storage/cache';
+    $files = glob($cacheDir . '/container.php*') ?: [];
+    $count = 0;
+
+    foreach ($files as $file) {
+        @unlink($file);
+        $count++;
+    }
+
+    fwrite(STDOUT, "\033[32m[Spinx]\033[0m Compiled DI container cache cleared successfully.\n");
+}
+
+function schemaClearCommand(string $projectRoot): void
+{
+    $schemaFile = $projectRoot . '/storage/cache/schema_columns.php';
+
+    if (is_file($schemaFile)) {
+        @unlink($schemaFile);
+        fwrite(STDOUT, "\033[32m[Spinx]\033[0m Compiled schema cache cleared successfully.\n");
+    } else {
+        fwrite(STDOUT, "[Spinx] No compiled schema cache found.\n");
+    }
+}
+
+function optimizeClearCommand(string $projectRoot): void
+{
+    fwrite(STDOUT, "\033[1;36m[Spinx] Clearing all application caches...\033[0m\n");
+    containerClearCommand($projectRoot);
+    viewClearCommand($projectRoot);
+    schemaClearCommand($projectRoot);
+    cacheClearCommand($projectRoot);
+    fwrite(STDOUT, "\n\033[32m✔ All caches cleared successfully!\033[0m\n");
+}
+
+function optimizeCommand(string $projectRoot): void
+{
+    fwrite(STDOUT, "\033[1;36m[Spinx] Optimizing application for production...\033[0m\n");
+
+    // 1. Clear stale caches first
+    containerClearCommand($projectRoot);
+    viewClearCommand($projectRoot);
+
+    // 2. Pre-compile DBAL Schema Cache
+    fwrite(STDOUT, "  → Compiling database schema columns...\n");
+    schemaCompileCommand($projectRoot);
+
+    // 3. Pre-compile DI Container
+    fwrite(STDOUT, "  → Pre-compiling dependency injection container...\n");
+    $kernel = new \Spinx\Kernel\Kernel($projectRoot, debug: false);
+    $kernel->boot();
+
+    fwrite(STDOUT, "\n\033[32m✔ Configuration, schema, and dependency container cached successfully!\033[0m\n");
+}
+
 function printHelp(): void
 {
     fwrite(STDOUT, <<<HELP
@@ -1175,6 +1319,13 @@ function printHelp(): void
       spinx queue:work                   Poll and process the database-backed job queue
       spinx schedule:run                 Run all tasks in schedule.php that are due right now (invoke every minute via OS cron)
       spinx schema:compile               Introspect the database schema and write storage/cache/schema_columns.php (run after migrations)
+      spinx schema:clear                 Clear compiled schema cache
+      spinx cache:clear                  Clear application data cache (storage/cache/data/)
+      spinx cache:forget <key>           Remove a specific key from cache
+      spinx view:clear                   Clear compiled Blade view templates (storage/cache/views/)
+      spinx container:clear              Clear compiled DI container cache (storage/cache/container.php*)
+      spinx optimize:clear               Clear all cached bootstrap files, schema, views, and data
+      spinx optimize                     Pre-compile DI container, schema columns, and warm production cache
       spinx openapi:generate             Generate OpenAPI 3.1 schema from routes and controller attributes (--output=public/openapi.json)
       spinx logs [--lines=N]             View recent application logs with colored output
       spinx log:clear                    Clear all log files in storage/logs/

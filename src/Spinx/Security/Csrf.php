@@ -4,42 +4,69 @@ declare(strict_types=1);
 
 namespace Spinx\Security;
 
+use Spinx\Session\SessionInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Double-submit-cookie CSRF protection — deliberately not
- * session-backed, since no session subsystem exists in this framework
- * yet. The pattern: a random token is set as a cookie AND echoed into
- * every form via the @csrf directive; a state-changing request is only
- * accepted if the submitted token matches the cookie, which an
- * attacker's cross-site form can't read or set (browsers enforce
- * same-origin on cookie access) even though they CAN trigger a
- * cross-site POST. This is a real, legitimate, widely-used CSRF defense
- * (Angular, axios, and others use exactly this pattern) — not a
- * placeholder for "real" session-based CSRF later.
+ * Session-backed CSRF protection with cookie synchronization.
  *
- * The current-token state is intentionally static — framework-level
- * per-request state, same category as Model's connection manager or
- * RateLimitMiddleware's store (see their docblocks), not the kind of
- * app/Modules business-logic state the PHPStan rule from build spec §4
- * targets. CsrfMiddleware sets it at the start of every request, so it
- * never leaks between requests despite being static.
+ * The CSRF token is securely stored and managed in the user's active session.
+ * For client-side compatibility (e.g. JavaScript fetch/axios requests),
+ * the token is also synchronized to an XSRF-TOKEN cookie and verified against
+ * the session token on state-changing requests (POST, PUT, PATCH, DELETE).
  */
 final class Csrf
 {
     public const COOKIE_NAME = 'XSRF-TOKEN';
+    public const SESSION_KEY = '_token';
 
     private static ?string $currentToken = null;
 
-    /** Called once per request by CsrfMiddleware — reads the existing cookie token, or generates a fresh one if none exists yet. */
-    public static function tokenForRequest(Request $request): string
+    /**
+     * Retrieves or generates the CSRF token for the given session.
+     */
+    public static function tokenForSession(SessionInterface $session): string
     {
-        $cookieToken = $request->cookies->get(self::COOKIE_NAME);
+        $token = $session->get(self::SESSION_KEY);
 
-        return self::$currentToken = (is_string($cookieToken) && $cookieToken !== '') ? $cookieToken : self::generateToken();
+        if (!is_string($token) || $token === '') {
+            $token = self::generateToken();
+            $session->set(self::SESSION_KEY, $token);
+        }
+
+        return self::$currentToken = $token;
     }
 
-    /** The token for the CURRENT request — read by the @csrf directive via TemplateRenderer::csrfField(). Generates on-demand if not already initialized. */
+    /**
+     * Regenerates the CSRF token stored in the session (e.g. on login/logout).
+     */
+    public static function regenerateToken(SessionInterface $session): string
+    {
+        $token = self::generateToken();
+        $session->set(self::SESSION_KEY, $token);
+
+        return self::$currentToken = $token;
+    }
+
+    /**
+     * Called by CsrfMiddleware to initialize token from session or cookie.
+     */
+    public static function tokenForRequest(Request $request, ?SessionInterface $session = null): string
+    {
+        if ($session !== null) {
+            return self::tokenForSession($session);
+        }
+
+        $cookieToken = $request->cookies->get(self::COOKIE_NAME);
+
+        return self::$currentToken = (is_string($cookieToken) && $cookieToken !== '') 
+            ? $cookieToken 
+            : self::generateToken();
+    }
+
+    /**
+     * The token for the current request — used by @csrf directive.
+     */
     public static function current(): string
     {
         return self::$currentToken ??= self::generateToken();
@@ -55,17 +82,33 @@ final class Csrf
         return bin2hex(random_bytes(32));
     }
 
-    public static function verify(string $submitted, ?Request $request = null): bool
-    {
+    /**
+     * Verifies the submitted token against the session token or active cookie.
+     */
+    public static function verify(
+        string $submitted, 
+        ?Request $request = null, 
+        ?SessionInterface $session = null
+    ): bool {
         if ($submitted === '') {
             return false;
         }
 
+        // 1. Verify against session token if session is available
+        if ($session !== null) {
+            $sessionToken = $session->get(self::SESSION_KEY);
+            if (is_string($sessionToken) && $sessionToken !== '' && hash_equals($sessionToken, $submitted)) {
+                return true;
+            }
+        }
+
+        // 2. Verify against cookie token if available
         $expected = $request?->cookies->get(self::COOKIE_NAME);
         if (is_string($expected) && $expected !== '' && hash_equals($expected, $submitted)) {
             return true;
         }
 
+        // 3. Verify against static request-cycle token
         return self::$currentToken !== null && hash_equals(self::$currentToken, $submitted);
     }
 }

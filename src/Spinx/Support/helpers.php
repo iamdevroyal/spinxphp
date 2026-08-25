@@ -184,3 +184,34 @@ if (!function_exists('view')) {
         return \Spinx\Templating\View::render($template, $data, $status, $headers);
     }
 }
+
+if (!function_exists('cache')) {
+    /**
+     * Get / set cache values or retrieve the CacheManager.
+     *
+     * Usage:
+     *   $val = cache('key', 'default');
+     *   cache(['key' => 'value'], 3600);
+     *   cache()->remember('key', 3600, fn() => 'computed');
+     */
+    function cache(mixed ...$args): mixed
+    {
+        if (empty($args)) {
+            return \Spinx\Cache\Cache::getManager();
+        }
+
+        if (is_string($args[0])) {
+            return \Spinx\Cache\Cache::get($args[0], $args[1] ?? null);
+        }
+
+        if (is_array($args[0])) {
+            $ttl = $args[1] ?? null;
+            foreach ($args[0] as $key => $value) {
+                \Spinx\Cache\Cache::put((string) $key, $value, $ttl);
+            }
+            return true;
+        }
+
+        return \Spinx\Cache\Cache::getManager();
+    }
+}

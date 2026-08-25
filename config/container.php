@@ -110,5 +110,14 @@ return static function (ContainerConfigurator $configurator): void {
 
     $services->alias(\Psr\Log\LoggerInterface::class, \Spinx\Log\LogManager::class)
         ->public();
+
+    // Cache subsystem bindings
+    $services->set(\Spinx\Cache\CacheManager::class)
+        ->args(['%spinx.project_root%'])
+        ->public();
+
+    $services->set(\Spinx\Cache\Store\CacheStoreInterface::class)
+        ->factory([service(\Spinx\Cache\CacheManager::class), 'store'])
+        ->public();
 };
 

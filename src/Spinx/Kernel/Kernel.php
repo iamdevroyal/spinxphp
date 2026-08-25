@@ -24,7 +24,7 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
  */
 final class Kernel
 {
-    public const VERSION = '1.0.13';
+    public const VERSION = '1.0.14';
 
     private ContainerInterface $container;
     private RouteCollection $routes;
@@ -88,6 +88,11 @@ final class Kernel
         // Boot View Facade
         if ($this->container->has(\Spinx\Templating\TemplateRenderer::class)) {
             \Spinx\Templating\View::setRenderer($this->container->get(\Spinx\Templating\TemplateRenderer::class));
+        }
+
+        // Boot Cache subsystem
+        if ($this->container->has(\Spinx\Cache\CacheManager::class)) {
+            \Spinx\Cache\Cache::setManager($this->container->get(\Spinx\Cache\CacheManager::class));
         }
 
         $this->routes = $this->compileRoutes();
