@@ -103,5 +103,12 @@ return static function (ContainerConfigurator $configurator): void {
 
     $services->set(\Spinx\Auth\Middleware\GuestMiddleware::class)
         ->public();
+
+    // Logging subsystem bindings
+    $services->set(\Spinx\Log\LogManager::class)
+        ->public();
+
+    $services->alias(\Psr\Log\LoggerInterface::class, \Spinx\Log\LogManager::class)
+        ->public();
 };
 

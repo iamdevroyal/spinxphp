@@ -36,6 +36,7 @@
         "doctrine/dbal": "^4.0",
         "nyholm/psr7": "^1.8",
         "psr/http-message": "^2.0",
+        "psr/log": "^3.0",
         "spiral/roadrunner-cli": "^2.7",
         "spiral/roadrunner-http": "^4.1",
         "spiral/roadrunner-worker": "^3.5",

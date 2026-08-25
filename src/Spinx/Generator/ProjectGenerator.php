@@ -87,6 +87,7 @@ final class ProjectGenerator
         // Storage skeleton (empty structure, no cache contents or DB file).
         mkdir($targetDir . '/storage/cache/views', 0755, true);
         mkdir($targetDir . '/storage/frontend', 0755, true);
+        mkdir($targetDir . '/storage/logs', 0755, true);
         touch($targetDir . '/storage/cache/.gitkeep');
 
         // .env ready to go immediately — .env.example was already copied above.

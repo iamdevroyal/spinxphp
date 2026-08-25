@@ -110,3 +110,25 @@ if (!function_exists('resource_path')) {
         return base_path('resources' . ($path === '' ? '' : '/' . ltrim($path, '/\\')));
     }
 }
+
+if (!function_exists('logger')) {
+    /**
+     * Log a debug/info message or get the LogManager instance.
+     *
+     * Usage:
+     *   logger('User created', ['id' => 1]);
+     *   logger()->error('Something failed', ['exception' => $e]);
+     *
+     * @param string|\Stringable|null $message
+     * @param array<string, mixed> $context
+     * @return \Spinx\Log\LogManager|\Psr\Log\LoggerInterface|void
+     */
+    function logger(string|\Stringable|null $message = null, array $context = [])
+    {
+        if ($message === null) {
+            return \Spinx\Log\Log::getManager();
+        }
+
+        \Spinx\Log\Log::info($message, $context);
+    }
+}

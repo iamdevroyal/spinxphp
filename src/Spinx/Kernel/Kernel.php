@@ -78,6 +78,11 @@ final class Kernel
             \Spinx\Auth\Auth::boot($provider, $session);
         }
 
+        // Boot Logging subsystem
+        if ($this->container->has(\Spinx\Log\LogManager::class)) {
+            \Spinx\Log\Log::setManager($this->container->get(\Spinx\Log\LogManager::class));
+        }
+
         $this->routes = $this->compileRoutes();
         $this->requestScope = new RequestScope(
             $this->container,
@@ -159,17 +164,64 @@ final class Kernel
             return $response;
         };
 
-        if ($this->container->has(\Spinx\Session\SessionInterface::class)) {
-            $session = $this->container->get(\Spinx\Session\SessionInterface::class);
-            $fileSession = $this->container->has(\Spinx\Session\FileSession::class)
-                ? $this->container->get(\Spinx\Session\FileSession::class)
-                : null;
-            $sessionMiddleware = new \Spinx\Session\SessionMiddleware($session, $fileSession);
+        try {
+            if ($this->container->has(\Spinx\Session\SessionInterface::class)) {
+                $session = $this->container->get(\Spinx\Session\SessionInterface::class);
+                $fileSession = $this->container->has(\Spinx\Session\FileSession::class)
+                    ? $this->container->get(\Spinx\Session\FileSession::class)
+                    : null;
+                $sessionMiddleware = new \Spinx\Session\SessionMiddleware($session, $fileSession);
 
-            return $sessionMiddleware->process($request, $dispatch);
+                return $sessionMiddleware->process($request, $dispatch);
+            }
+
+            return $dispatch($request);
+        } catch (\Throwable $e) {
+            return $this->handleException($e, $request);
+        }
+    }
+
+    private function handleException(\Throwable $e, Request $request): Response
+    {
+        \Spinx\Log\Log::error($e->getMessage(), [
+            'exception' => $e,
+            'method'    => $request->getMethod(),
+            'uri'       => $request->getRequestUri(),
+            'ip'        => $request->getClientIp(),
+        ]);
+
+        $isJson = $request->isXmlHttpRequest() || str_contains((string) $request->headers->get('Accept', ''), 'application/json');
+
+        if ($isJson) {
+            $payload = [
+                'error'   => 'Server Error',
+                'message' => $this->debug ? $e->getMessage() : 'An internal error occurred.',
+            ];
+            if ($this->debug) {
+                $payload['file'] = $e->getFile() . ':' . $e->getLine();
+            }
+
+            return new Response(
+                (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+                500,
+                ['Content-Type' => 'application/json']
+            );
         }
 
-        return $dispatch($request);
+        if ($this->debug) {
+            $msg = sprintf(
+                "<h1>500 Internal Server Error</h1><p><strong>%s:</strong> %s</p><p>in <code>%s:%d</code></p><pre>%s</pre>",
+                htmlspecialchars(get_class($e)),
+                htmlspecialchars($e->getMessage()),
+                htmlspecialchars($e->getFile()),
+                $e->getLine(),
+                htmlspecialchars($e->getTraceAsString())
+            );
+
+            return new Response($msg, 500, ['Content-Type' => 'text/html']);
+        }
+
+        return new Response('500 Internal Server Error', 500);
     }
 
 

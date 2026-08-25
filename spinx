@@ -102,8 +102,17 @@ switch ($command) {
         buildMobileCommand($projectRoot, $argv[2] ?? null);
         break;
 
-    case 'build':
-        buildCommand($projectRoot);
+    case 'openapi:generate':
+        openApiGenerateCommand($projectRoot, $argv);
+        break;
+
+    case 'log:clear':
+        logClearCommand($projectRoot);
+        break;
+
+    case 'logs':
+    case 'log:tail':
+        logsCommand($projectRoot, $argv);
         break;
 
     case null:
@@ -1040,6 +1049,76 @@ function openApiGenerateCommand(string $projectRoot, array $argv): void
     fwrite(STDOUT, "[Spinx] OpenAPI specification generated → {$outputPath}\n");
 }
 
+function logClearCommand(string $projectRoot): void
+{
+    $logDir = $projectRoot . '/storage/logs';
+    if (!is_dir($logDir)) {
+        fwrite(STDOUT, "[Spinx] No storage/logs directory found.\n");
+        return;
+    }
+
+    $files = glob($logDir . '/*.log');
+    $count = 0;
+    foreach ($files ?: [] as $file) {
+        if (is_file($file)) {
+            @unlink($file);
+            $count++;
+        }
+    }
+
+    fwrite(STDOUT, "[Spinx] Cleared {$count} log file(s) from storage/logs/.\n");
+}
+
+function logsCommand(string $projectRoot, array $argv): void
+{
+    $logDir = $projectRoot . '/storage/logs';
+    if (!is_dir($logDir)) {
+        fwrite(STDOUT, "[Spinx] No storage/logs directory found.\n");
+        return;
+    }
+
+    $files = glob($logDir . '/*.log');
+    if (empty($files)) {
+        fwrite(STDOUT, "[Spinx] No log files found in storage/logs/.\n");
+        return;
+    }
+
+    // Pick the most recently modified log file
+    usort($files, fn($a, $b) => filemtime($b) <=> filemtime($a));
+    $latestLog = $files[0];
+
+    $linesCount = 50;
+    foreach ($argv as $arg) {
+        if (str_starts_with($arg, '--lines=')) {
+            $linesCount = max(1, (int) substr($arg, 8));
+        }
+    }
+
+    $content = file_get_contents($latestLog);
+    if ($content === false || trim($content) === '') {
+        fwrite(STDOUT, "[Spinx] Log file " . basename($latestLog) . " is empty.\n");
+        return;
+    }
+
+    $allLines = explode("\n", $content);
+    $slice = array_slice($allLines, -$linesCount);
+
+    fwrite(STDOUT, "[Spinx] Showing last " . count($slice) . " lines of " . basename($latestLog) . ":\n\n");
+    foreach ($slice as $line) {
+        if (str_contains($line, '.ERROR:') || str_contains($line, '.CRITICAL:') || str_contains($line, '.EMERGENCY:')) {
+            fwrite(STDOUT, "\033[31m" . $line . "\033[0m\n");
+        } elseif (str_contains($line, '.WARNING:')) {
+            fwrite(STDOUT, "\033[33m" . $line . "\033[0m\n");
+        } elseif (str_contains($line, '.INFO:')) {
+            fwrite(STDOUT, "\033[32m" . $line . "\033[0m\n");
+        } elseif (str_contains($line, '┌') || str_contains($line, '├') || str_contains($line, '└') || str_contains($line, '│')) {
+            fwrite(STDOUT, "\033[36m" . $line . "\033[0m\n");
+        } else {
+            fwrite(STDOUT, $line . "\n");
+        }
+    }
+}
+
 function printHelp(): void
 {
     fwrite(STDOUT, <<<HELP
@@ -1064,14 +1143,16 @@ function printHelp(): void
       spinx schedule:run                 Run all tasks in schedule.php that are due right now (invoke every minute via OS cron)
       spinx schema:compile               Introspect the database schema and write storage/cache/schema_columns.php (run after migrations)
       spinx openapi:generate             Generate OpenAPI 3.1 schema from routes and controller attributes (--output=public/openapi.json)
+      spinx logs [--lines=N]             View recent application logs with colored output
+      spinx log:clear                    Clear all log files in storage/logs/
       spinx preview --mobile             Open the dev server in a browser-based mobile device preview tool
       spinx preview --android            Open the dev server on a running/booted Android device or emulator
       spinx preview --ios                Open the dev server on the iOS Simulator (macOS + Xcode only)
       spinx preview --desktop            Open the dev server in a native desktop webview window
-      spinx preview --mobile             Open the dev server in a browser-based mobile device preview tool
       spinx build:mobile --android       Scaffold a native Android shell (Kotlin + WebView) in mobile/android/
       spinx build:mobile --ios           Scaffold a native iOS shell (Swift + WKWebView) in mobile/ios/
       spinx build                        Production build: compiled frontend assets + primed backend cache
 
     HELP);
 }
+
