@@ -3,31 +3,58 @@
     "description": "A fast, lightweight PHP framework with enforced DDD architecture — flexible across persistent-process runtimes (RoadRunner, Swoole) without being tied to either.",
     "type": "library",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "iamdevroyal",
+            "email": "devroyal@spinx.dev",
+            "role": "Lead Developer"
+        }
+    ],
+    "keywords": [
+        "framework",
+        "spinx",
+        "php",
+        "roadrunner",
+        "swoole",
+        "ddd",
+        "domain-driven-design",
+        "coroutines",
+        "persistent-workers",
+        "vue",
+        "react",
+        "islands",
+        "openapi"
+    ],
+    "homepage": "https://spinx.dev",
+    "support": {
+        "source": "https://github.com/iamdevroyal/spinxphp",
+        "docs": "https://spinx.dev/docs"
+    },
     "require": {
         "php": ">=8.2",
         "ext-mbstring": "*",
-        "symfony/http-foundation": "^7.0",
-        "symfony/routing": "^7.0",
-        "symfony/dependency-injection": "^7.0",
-        "symfony/config": "^7.0",
         "doctrine/dbal": "^4.0",
-        "vlucas/phpdotenv": "^5.6",
+        "nyholm/psr7": "^1.8",
+        "psr/http-message": "^2.0",
+        "spiral/roadrunner-http": "^4.1",
+        "spiral/roadrunner-worker": "^3.5",
+        "symfony/config": "^7.0",
+        "symfony/dependency-injection": "^7.0",
         "symfony/http-client": "^7.0",
+        "symfony/http-foundation": "^7.0",
         "symfony/mailer": "^7.2",
         "symfony/mailgun-mailer": "^7.2",
-        "symfony/resend-mailer": "^7.2",
-        "psr/http-message": "^2.0",
-        "nyholm/psr7": "^1.8",
         "symfony/psr-http-message-bridge": "^7.0",
-        "spiral/roadrunner-http": "^4.1",
-        "spiral/roadrunner-worker": "^3.5"
+        "symfony/resend-mailer": "^7.2",
+        "symfony/routing": "^7.0",
+        "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
-        "phpstan/phpstan": "^1.11 || ^2.0",
-        "symfony/var-dumper": "^7.0",
         "fakerphp/faker": "^1.23",
+        "phpstan/phpstan": "^1.11 || ^2.0",
+        "spiral/roadrunner-cli": "^2.7",
         "swoole/ide-helper": "^6.0",
-        "spiral/roadrunner-cli": "^2.7"
+        "symfony/var-dumper": "^7.0"
     },
     "suggest": {
         "ext-swoole": "Enables the high-performance Swoole runtime driver (opt-in, Docker/Linux only — see spinx.json \"driver\": \"swoole\"). Not installable via Composer; use the project's Dockerfile or install the PECL extension directly."

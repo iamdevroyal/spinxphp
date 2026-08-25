@@ -1,0 +1,11 @@
+# Git export-ignore for Packagist / Composer releases
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.dockerignore export-ignore
+/Dockerfile export-ignore
+/phpstan.neon export-ignore
+/SPINX_BUILD_SPEC.md export-ignore
+/docs export-ignore
+/tests export-ignore
+/tools export-ignore
+/examples export-ignore
