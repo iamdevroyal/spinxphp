@@ -10,18 +10,12 @@ namespace Spinx\Templating;
  * which would add a real latency/complexity cost for no functional gain):
  *
  * - In dev mode, `spinx serve` boots the Vite dev server alongside
- *   RoadRunner and drops a marker file at storage/frontend/hot containing
+ *   RoadRunner/Swoole and drops a marker file at storage/frontend/hot containing
  *   the dev server's URL. When that file exists, @vite emits script tags
  *   pointing directly at the Vite dev server, giving full HMR.
  * - In production, storage/frontend/hot won't exist (nothing wrote it),
- *   so @vite falls back to reading public/build/manifest.json — the
+ *   so @vite falls back to reading public/build/.vite/manifest.json — the
  *   compiled, hashed asset filenames Vite produces on `spinx build`.
- *
- * The browser therefore always talks to Vite directly for JS/CSS in dev
- * mode and to static prebuilt assets in prod — only the initial HTML
- * request goes through the PHP backend either way, which is what "one
- * command boots both, HMR just works" needs to feel like from the
- * developer's side.
  */
 final class Vite
 {
@@ -44,20 +38,28 @@ final class Vite
     private function devTags(string $devServerUrl): string
     {
         $devServerUrl = rtrim($devServerUrl);
+        $entry = $this->resolveEntryScript();
 
         return sprintf(
             '<script type="module" src="%1$s/@vite/client"></script>' . "\n" .
-            '<script type="module" src="%1$s/src/main.js"></script>',
-            htmlspecialchars($devServerUrl, ENT_QUOTES, 'UTF-8')
+            '<script type="module" src="%1$s/%2$s"></script>',
+            htmlspecialchars($devServerUrl, ENT_QUOTES, 'UTF-8'),
+            htmlspecialchars($entry, ENT_QUOTES, 'UTF-8')
         );
+    }
+
+    private function resolveEntryScript(): string
+    {
+        if (is_file($this->projectRoot . '/frontend/src/main.jsx')) {
+            return 'src/main.jsx';
+        }
+
+        return 'src/main.js';
     }
 
     private function productionTags(): string
     {
-        // Vite 5 writes the manifest to public/build/.vite/manifest.json,
-        // not public/build/manifest.json directly — confirmed by actually
-        // running `vite build` (see examples/react-frontend, step 10)
-        // rather than assumed from Vite's older pre-5 convention.
+        // Vite 5 writes the manifest to public/build/.vite/manifest.json
         $manifestPath = $this->projectRoot . '/public/build/.vite/manifest.json';
 
         if (!is_file($manifestPath)) {
@@ -67,12 +69,11 @@ final class Vite
         $manifest = json_decode((string) file_get_contents($manifestPath), true) ?? [];
 
         // Entry key matches whichever frontend is configured — Vue's
-        // default scaffold uses src/main.js, the React alternative
-        // (examples/react-frontend) uses src/main.jsx.
+        // default scaffold uses src/main.js, the React alternative uses src/main.jsx.
         $entry = $manifest['src/main.js'] ?? $manifest['src/main.jsx'] ?? null;
 
         if ($entry === null) {
-            return '<!-- Spinx: src/main.js entry missing from Vite manifest. -->';
+            return '<!-- Spinx: frontend entry missing from Vite manifest. -->';
         }
 
         $tags = sprintf('<script type="module" src="/build/%s"></script>', htmlspecialchars($entry['file'], ENT_QUOTES, 'UTF-8'));

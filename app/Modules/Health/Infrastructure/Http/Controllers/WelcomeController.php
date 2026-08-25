@@ -23,20 +23,23 @@ final class WelcomeController
 
     public function __invoke(Request $request): Response
     {
-        $driver = Config::get('app.driver', 'RoadRunner (Persistent)');
-        $frontend = Config::get('app.frontend', 'Vue 3 + Vite');
-        $env = Config::get('app.env', 'local');
-        $modules = Config::get('modules', ['Health' => true, 'Todo' => true]);
+        $spinxConfig = @json_decode((string) @file_get_contents(base_path('spinx.json')), true) ?? [];
+        $driver = $spinxConfig['driver'] ?? env('SPINX_DRIVER', 'roadrunner');
+        $frontend = $spinxConfig['frontend'] ?? 'vue';
+        $driverLabel = strtolower((string) $driver) === 'swoole' ? 'Swoole (Coroutines)' : 'RoadRunner (Persistent)';
+        $frontendLabel = strtolower((string) $frontend) === 'react' ? 'React 19' : 'Vue 3';
+        $env = Config::get('app.env', env('APP_ENV', 'local'));
+        $modules = $spinxConfig['modules'] ?? ['Health' => true, 'Todo' => true];
 
         $html = $this->renderer->render('welcome', [
             'title'        => 'Spinx Framework',
-            'spinxVersion' => '1.0.0',
+            'spinxVersion' => '1.0.4',
             'phpVersion'   => PHP_VERSION,
-            'driver'       => is_string($driver) ? ucfirst($driver) : 'RoadRunner (Persistent)',
-            'frontend'     => is_string($frontend) ? ucfirst($frontend) : 'Vue 3',
-            'env'          => is_string($env) ? ucfirst($env) : 'Local',
+            'driver'       => $driverLabel,
+            'frontend'     => $frontendLabel,
+            'env'          => ucfirst((string) $env),
             'modulesCount' => is_array($modules) ? count($modules) : 2,
-            'docsUrl'      => 'https://spinx.dev/docs',
+            'docsUrl'      => 'https://spinx.pages.dev/docs',
             'repoUrl'      => 'https://github.com/iamdevroyal/spinxphp',
         ]);
 

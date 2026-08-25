@@ -15,36 +15,6 @@ use Symfony\Component\Routing\RouteCollection;
  * "convenience" location. The ONLY way a route or service gets registered
  * is by living inside app/Modules/<Name>/module.php, which is itself only
  * ever produced (in its expected shape) by `spinx make:module`.
- *
- * Bypassing the DDD structure isn't just discouraged — it's structurally
- * unavailable, matching the framework's spec's requirement that enforcement be
- * architectural, not a linting convention.
- *
- * --- module.php shape (v2 — fluent DSL) ---
- *
- * return [
- *     // Optional: register controller aliases for use in Route::*()->controller().
- *     // DI registration is automatic — no separate 'services' block needed for these.
- *     'controllers' => static function (AliasRegistry $r): void {
- *         $r->registerController('order_list', OrderListController::class);
- *     },
- *
- *     // Optional: register middleware aliases for use in Route::*()->middleware([]).
- *     'middlewares' => static function (AliasRegistry $r): void {
- *         $r->registerMiddleware('auth',       AuthMiddleware::class);
- *         $r->registerMiddleware('rate_limit', RateLimitMiddleware::class);
- *     },
- *
- *     // Required: declare routes using the fluent Route:: DSL.
- *     'routes' => static function (RouteBuilder $routes): void {
- *         Route::get(['orders.index', '/orders'])->controller('order_list');
- *     },
- *
- *     // Optional: non-controller/non-middleware DI bindings.
- *     'services' => static function (ContainerBuilder $container, string $moduleDir): void {
- *         $container->register(OrderRepository::class)->setAutowired(true)->setPublic(true);
- *     },
- * ];
  */
 final class ModuleLoader
 {
@@ -53,6 +23,8 @@ final class ModuleLoader
 
     /** Shared registry populated across all modules at boot. */
     private readonly AliasRegistry $aliasRegistry;
+
+    private bool $aliasesPopulated = false;
 
     public function __construct(
         private readonly string $projectRoot,
@@ -63,39 +35,15 @@ final class ModuleLoader
     /**
      * Every enabled module contributes its DI bindings here. Called once
      * during container compilation (see ContainerFactory::build()).
-     *
-     * Processes 'controllers', 'middlewares', and 'services' closures —
-     * in that order — so aliases are available for DI auto-registration
-     * before any other service definitions run.
-     *
-     * Any service a module registers here is automatically tagged
-     * "spinx.module_service" by diffing the container's definitions
-     * before/after the module's closure runs. Module authors never tag
-     * anything by hand — RequestScopePass (see
-     * Spinx\Container\Compiler\RequestScopePass) later reads this tag to
-     * decide request-scoped vs singleton, so the state-safety enforcement
-     * from build spec §4 applies to every module service without opt-in.
      */
     public function registerServices(ContainerBuilder $container): void
     {
-        foreach ($this->discoverModules() as $moduleDir) {
-            $definition = $this->loadModuleDefinition($moduleDir);
-
-            // 1. Run 'controllers' closure — fills AliasRegistry with controller aliases.
-            if (isset($definition['controllers']) && is_callable($definition['controllers'])) {
-                $definition['controllers']($this->aliasRegistry);
-            }
-
-            // 2. Run 'middlewares' closure — fills AliasRegistry with middleware aliases.
-            if (isset($definition['middlewares']) && is_callable($definition['middlewares'])) {
-                $definition['middlewares']($this->aliasRegistry);
-            }
-        }
+        $this->ensureAliasesPopulated();
 
         // Auto-register all aliased controllers and middlewares into the container.
         $this->aliasRegistry->registerServicesInContainer($container);
 
-        // 3. Run 'services' closures for non-alias DI bindings.
+        // Run 'services' closures for non-alias DI bindings.
         foreach ($this->discoverModules() as $moduleDir) {
             $definition = $this->loadModuleDefinition($moduleDir);
 
@@ -130,6 +78,8 @@ final class ModuleLoader
      */
     public function loadRoutes(RouteCollection $routes): void
     {
+        $this->ensureAliasesPopulated();
+
         foreach ($this->discoverModules() as $moduleDir) {
             $definition = $this->loadModuleDefinition($moduleDir);
 
@@ -138,7 +88,7 @@ final class ModuleLoader
             }
 
             // Create a fresh RouteBuilder for this module, backed by the
-            // shared AliasRegistry (already populated by registerServices()).
+            // shared AliasRegistry (already populated by ensureAliasesPopulated()).
             $builder = new RouteBuilder('', $this->aliasRegistry);
 
             // Set the active builder so Route::get() etc. know where to deposit definitions.
@@ -152,6 +102,27 @@ final class ModuleLoader
 
             // Compile all collected definitions into real Symfony Route objects.
             $builder->compileInto($routes);
+        }
+    }
+
+    private function ensureAliasesPopulated(): void
+    {
+        if ($this->aliasesPopulated) {
+            return;
+        }
+
+        $this->aliasesPopulated = true;
+
+        foreach ($this->discoverModules() as $moduleDir) {
+            $definition = $this->loadModuleDefinition($moduleDir);
+
+            if (isset($definition['controllers']) && is_callable($definition['controllers'])) {
+                $definition['controllers']($this->aliasRegistry);
+            }
+
+            if (isset($definition['middlewares']) && is_callable($definition['middlewares'])) {
+                $definition['middlewares']($this->aliasRegistry);
+            }
         }
     }
 
@@ -181,9 +152,6 @@ final class ModuleLoader
                     continue;
                 }
 
-                // If spinx.json declares an explicit module registry, honor
-                // enable/disable toggles. Absence of a registry entry defaults
-                // to enabled — a module only needs a module.php to be discoverable.
                 if ($enabled !== null && isset($enabled[$entry]) && $enabled[$entry] === false) {
                     continue;
                 }
@@ -204,8 +172,7 @@ final class ModuleLoader
 
         if (!is_array($definition)) {
             throw new \RuntimeException(sprintf(
-                'Module definition at %s/module.php must return an array. ' .
-                'Expected keys: "routes" (required), "controllers", "middlewares", "services" (all optional callables).',
+                'Module definition at %s/module.php must return an array.',
                 $moduleDir
             ));
         }
