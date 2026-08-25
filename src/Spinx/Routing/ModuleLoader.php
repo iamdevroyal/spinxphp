@@ -38,6 +38,10 @@ final class ModuleLoader
      */
     public function registerServices(ContainerBuilder $container): void
     {
+        if (is_file($this->projectRoot . '/spinx.json')) {
+            $container->addResource(new \Symfony\Component\Config\Resource\FileResource($this->projectRoot . '/spinx.json'));
+        }
+
         $this->ensureAliasesPopulated();
 
         // Auto-register all aliased controllers and middlewares into the container.
@@ -45,6 +49,10 @@ final class ModuleLoader
 
         // Run 'services' closures for non-alias DI bindings.
         foreach ($this->discoverModules() as $moduleDir) {
+            if (is_file($moduleDir . '/module.php')) {
+                $container->addResource(new \Symfony\Component\Config\Resource\FileResource($moduleDir . '/module.php'));
+            }
+
             $definition = $this->loadModuleDefinition($moduleDir);
 
             if (isset($definition['services']) && is_callable($definition['services'])) {

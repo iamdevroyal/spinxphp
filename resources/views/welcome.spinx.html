@@ -482,6 +482,8 @@
             </a>
 
             <div class="nav-links">
+                <a href="/login" class="nav-link">Sign In</a>
+                <a href="/register" class="nav-link">Register</a>
                 <a href="{{ $docsUrl }}" target="_blank" rel="noopener noreferrer" class="nav-link">Documentation</a>
                 <a href="{{ $repoUrl }}" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
                 <a href="{{ $docsUrl }}/quickstart" target="_blank" rel="noopener noreferrer" class="btn-docs">
@@ -555,12 +557,39 @@
 
             <!-- Feature Cards & Cheatsheet Grid -->
             <div class="grid">
+                <a href="/login" class="card">
+                    <div>
+                        <div class="card-icon">🔐</div>
+                        <div class="card-title">
+                            <span>Auth Subsystem</span>
+                            <span style="font-size: 0.75rem; color: var(--primary-light);">Explore →</span>
+                        </div>
+                        <div class="card-desc">Session-backed authentication, Argon2id password hashing, and route protection guards.</div>
+                    </div>
+                    <div class="code-box">
+                        <span>/login &bull; /register &bull; /dashboard</span>
+                    </div>
+                </a>
+
+                <a href="/todos" class="card">
+                    <div>
+                        <div class="card-icon">📝</div>
+                        <div class="card-title">
+                            <span>Zero-JS Module</span>
+                            <span style="font-size: 0.75rem; color: var(--primary-light);">Explore →</span>
+                        </div>
+                        <div class="card-desc">Server-rendered CRUD reference module proving zero-JS HTML with CSRF protection.</div>
+                    </div>
+                    <div class="code-box">
+                        <span>/todos &bull; @csrf verified</span>
+                    </div>
+                </a>
+
                 <div class="card">
                     <div>
                         <div class="card-icon">🏗️</div>
                         <div class="card-title">Enforced DDD Modules</div>
-                        <div class="card-desc">Code is organized into strict Domain-Driven Design boundaries. No loose
-                            controllers.</div>
+                        <div class="card-desc">Code is organized into strict Domain-Driven Design boundaries. No loose controllers.</div>
                     </div>
                     <div class="code-box">
                         <span>php spinx make:module Billing</span>
@@ -571,8 +600,7 @@
                     <div>
                         <div class="card-icon">🚦</div>
                         <div class="card-title">Fluent Routing DSL</div>
-                        <div class="card-desc">Declare routes, controllers, and middleware aliases fluently in
-                            module.php with autowiring.</div>
+                        <div class="card-desc">Declare routes, controllers, and middleware aliases fluently in module.php with autowiring.</div>
                     </div>
                     <div class="code-box">
                         <span>Route::get(['invoices', '/invoices'])</span>
@@ -583,8 +611,7 @@
                     <div>
                         <div class="card-icon">🗄️</div>
                         <div class="card-title">DBAL 4 Active Record</div>
-                        <div class="card-desc">Schema-cached columns, selectWithout, when/then conditional querying, and
-                            atomic row locking.</div>
+                        <div class="card-desc">Schema-cached columns, selectWithout, when/then conditional querying, and atomic row locking.</div>
                     </div>
                     <div class="code-box">
                         <span>php spinx schema:compile</span>
@@ -595,8 +622,7 @@
                     <div>
                         <div class="card-icon">📱</div>
                         <div class="card-title">Mobile Device Preview</div>
-                        <div class="card-desc">Test your views in an interactive responsive mobile preview container
-                            with device bezels.</div>
+                        <div class="card-desc">Test your views in an interactive responsive mobile preview container with device bezels.</div>
                     </div>
                     <div class="code-box">
                         <span>php spinx preview --mobile</span>

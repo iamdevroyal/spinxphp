@@ -814,35 +814,68 @@ function previewDesktop(string $projectRoot, string $devServerUrl): void
     $binaryName = 'spinx-desktop-preview' . (PHP_OS_FAMILY === 'Windows' ? '.exe' : '');
     $binaryPath = $shellDir . '/' . $binaryName;
 
-    if (!is_file($binaryPath)) {
-        $goBin = findExecutableInPath('go');
-
-        if ($goBin === null) {
-            fwrite(STDERR, "[Spinx] Go toolchain not found and no pre-built desktop preview binary exists.\n");
-            fwrite(STDERR, "        Install Go (https://go.dev/dl/) — see tools/desktop-preview/README.md,\n");
-            fwrite(STDERR, "        or open {$devServerUrl} in a browser manually as a fallback.\n");
-            exit(1);
+    // 1. Pre-built or already compiled binary
+    if (is_file($binaryPath)) {
+        fwrite(STDOUT, "[Spinx] Opening desktop preview window for {$devServerUrl}...\n");
+        $process = proc_open([$binaryPath, $devServerUrl], [STDIN, STDOUT, STDERR], $pipes, $shellDir);
+        if ($process !== false) {
+            proc_close($process);
+            return;
         }
+    }
 
-        fwrite(STDOUT, "[Spinx] Building the desktop preview shell (first run only)...\n");
+    // 2. Try compiling via Go if Go is installed
+    $goBin = findExecutableInPath('go');
+    if ($goBin !== null && is_dir($shellDir)) {
+        fwrite(STDOUT, "[Spinx] Building native desktop preview shell via Go...\n");
         $build = proc_open([$goBin, 'build', '-o', $binaryName, '.'], [STDIN, STDOUT, STDERR], $pipes, $shellDir);
-
-        if ($build === false || proc_close($build) !== 0) {
-            fwrite(STDERR, "[Spinx] Failed to build the desktop preview shell.\n");
-            fwrite(STDERR, "        See tools/desktop-preview/README.md — common cause is missing GTK/WebKit dev packages.\n");
-            exit(1);
+        if ($build !== false && proc_close($build) === 0 && is_file($binaryPath)) {
+            fwrite(STDOUT, "[Spinx] Opening desktop preview window for {$devServerUrl}...\n");
+            $process = proc_open([$binaryPath, $devServerUrl], [STDIN, STDOUT, STDERR], $pipes, $shellDir);
+            if ($process !== false) {
+                proc_close($process);
+                return;
+            }
         }
     }
 
-    fwrite(STDOUT, "[Spinx] Opening desktop preview window for {$devServerUrl}...\n");
-    $process = proc_open([$binaryPath, $devServerUrl], [STDIN, STDOUT, STDERR], $pipes, $shellDir);
+    // 3. Seamless native app-window fallback (zero dependencies required)
+    fwrite(STDOUT, "[Spinx] Launching standalone desktop app window for {$devServerUrl}...\n");
+    launchAppWindowFallback($devServerUrl);
+}
 
-    if ($process === false) {
-        fwrite(STDERR, "[Spinx] Failed to launch the desktop preview window.\n");
-        exit(1);
+function launchAppWindowFallback(string $url): void
+{
+    if (PHP_OS_FAMILY === 'Windows') {
+        $candidates = [
+            'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+            'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        ];
+
+        foreach ($candidates as $bin) {
+            if (is_file($bin)) {
+                shell_exec(sprintf('start "" %s --app=%s --window-size=1200,800', escapeshellarg($bin), escapeshellarg($url)));
+                return;
+            }
+        }
+
+        shell_exec('start "" ' . escapeshellarg($url));
+    } elseif (PHP_OS_FAMILY === 'Darwin') {
+        if (is_dir('/Applications/Google Chrome.app')) {
+            shell_exec(sprintf('open -n -a "Google Chrome" --args --app=%s --window-size=1200,800', escapeshellarg($url)));
+        } else {
+            shell_exec('open ' . escapeshellarg($url));
+        }
+    } else {
+        $chrome = findExecutableInPath('google-chrome') ?? findExecutableInPath('chromium') ?? findExecutableInPath('chromium-browser');
+        if ($chrome !== null) {
+            shell_exec(sprintf('%s --app=%s --window-size=1200,800 >/dev/null 2>&1 &', escapeshellarg($chrome), escapeshellarg($url)));
+        } else {
+            shell_exec('xdg-open ' . escapeshellarg($url) . ' >/dev/null 2>&1 &');
+        }
     }
-
-    proc_close($process);
 }
 
 function findExecutableInPath(string $binary): ?string

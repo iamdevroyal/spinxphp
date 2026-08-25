@@ -24,9 +24,11 @@ final class CsrfMiddleware implements MiddlewareInterface
         $token = Csrf::tokenForRequest($request);
 
         if (in_array($request->getMethod(), self::STATE_CHANGING_METHODS, true)) {
-            $submitted = $request->request->get('_token') ?? $request->headers->get('X-CSRF-TOKEN');
+            $submitted = $request->request->get('_token') 
+                ?? $request->headers->get('X-CSRF-TOKEN') 
+                ?? $request->headers->get('X-XSRF-TOKEN');
 
-            if (!is_string($submitted) || !Csrf::verify($submitted)) {
+            if (!is_string($submitted) || !Csrf::verify($submitted, $request)) {
                 return new Response('CSRF token mismatch.', 419);
             }
         }

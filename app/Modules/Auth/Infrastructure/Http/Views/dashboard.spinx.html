@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ $title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0A0A0C;
+            --bg-card: #121216;
+            --bg-card-hover: #18181E;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-focus: #E11D63;
+            --primary: #E11D63;
+            --primary-glow: rgba(225, 29, 99, 0.25);
+            --primary-light: #FFB2BF;
+            --text-main: #EDEDF0;
+            --text-muted: #8E8E98;
+            --badge-bg: rgba(255, 255, 255, 0.04);
+            --success-color: #10B981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(225, 29, 99, 0.12) 0%, transparent 60%),
+                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+        }
+
+        .container {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* Top Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #E11D63, #8B5CF6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #FFFFFF;
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+
+        .brand-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.8125rem;
+        }
+
+        .user-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8B5CF6, #E11D63);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #FCA5A5;
+            padding: 0.45rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        /* Welcome Banner */
+        .welcome-card {
+            background: linear-gradient(180deg, rgba(225, 29, 99, 0.08) 0%, rgba(18, 18, 22, 0.7) 100%);
+            border: 1px solid rgba(225, 29, 99, 0.25);
+            border-radius: 16px;
+            padding: 2.25rem;
+            margin-bottom: 2rem;
+            position: relative;
+            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .welcome-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* Grid Section */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .stat-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* Quick Links Card */
+        .quick-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.75rem;
+        }
+
+        .quick-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin-bottom: 1rem;
+        }
+
+        .links-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .quick-btn {
+            background: #08080A;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            text-decoration: none;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .quick-btn:hover {
+            border-color: var(--border-focus);
+            color: #FFFFFF;
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 640px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .welcome-title {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Top Navigation -->
+        <header class="header">
+            <a href="/" class="brand">
+                <div class="brand-logo">S</div>
+                <div class="brand-name">Spinx App</div>
+            </a>
+
+            <div class="user-nav">
+                <div class="user-pill">
+                    <div class="user-avatar">{{ strtoupper(substr($user->name ?? 'U', 0, 1)) }}</div>
+                    <span>{{ $user->name ?? 'User' }}</span>
+                </div>
+
+                <form action="/logout" method="POST" style="margin: 0;">
+                    @csrf
+                    <button type="submit" class="btn-logout">Sign Out</button>
+                </form>
+            </div>
+        </header>
+
+        <!-- Welcome Banner -->
+        <section class="welcome-card">
+            <h1 class="welcome-title">Hello, {{ $user->name ?? 'Developer' }} 👋</h1>
+            <p class="welcome-desc">
+                You are securely signed in via Spinx's native <code>Auth</code> subsystem. Your session state is maintained across persistent worker requests with zero framework overhead.
+            </p>
+        </section>
+
+        <!-- Diagnostics Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Account Profile</span>
+                    <span>👤</span>
+                </div>
+                <div class="stat-value" style="font-size: 1rem; word-break: break-all;">
+                    {{ $user->email ?? 'N/A' }}
+                </div>
+                <div class="stat-meta">User ID: #{{ $user->id ?? 1 }}</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Authentication Driver</span>
+                    <span>🔐</span>
+                </div>
+                <div class="stat-value" style="color: var(--primary-light);">
+                    Session + Cookie
+                </div>
+                <div class="stat-meta">Protection: XSRF Double Submit</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Runtime Engine</span>
+                    <span>⚡</span>
+                </div>
+                <div class="stat-value" style="color: var(--success-color);">
+                    PHP {{ $phpVersion }}
+                </div>
+                <div class="stat-meta">Spinx Framework v{{ $spinxVersion }}</div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="quick-card">
+            <h2 class="quick-title">Explore Reference Modules</h2>
+            <div class="links-row">
+                <a href="/todos" class="quick-btn">
+                    <span>📝</span>
+                    <span>Todo List (Raw Blade Module)</span>
+                </a>
+                <a href="/health" class="quick-btn">
+                    <span>🩺</span>
+                    <span>Health API (JSON Endpoint)</span>
+                </a>
+                <a href="/" class="quick-btn">
+                    <span>🏠</span>
+                    <span>Welcome Page</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

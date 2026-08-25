@@ -47,6 +47,9 @@ final class QueryBuilder
      */
     private array $attributes = [];
 
+    /** @var array<int, array{type: 'and'|'or', condition: string}> */
+    private array $whereClauses = [];
+
     public function __construct(
         private readonly Connection $connection,
         private readonly string $table,
@@ -60,7 +63,9 @@ final class QueryBuilder
     {
         [$operator, $boundValue] = func_num_args() === 2 ? ['=', $operatorOrValue] : [$operatorOrValue, $value];
         $param = $this->bindParam($boundValue);
-        $this->query->andWhere("{$column} {$operator} {$param}");
+        $condition = "{$column} {$operator} {$param}";
+        $this->query->andWhere($condition);
+        $this->whereClauses[] = ['type' => 'and', 'condition' => $condition];
 
         // Track in $attributes so the three-argument form of when() can
         // evaluate column comparisons against already-constrained values.
@@ -73,21 +78,27 @@ final class QueryBuilder
     {
         [$operator, $boundValue] = func_num_args() === 2 ? ['=', $operatorOrValue] : [$operatorOrValue, $value];
         $param = $this->bindParam($boundValue);
-        $this->query->orWhere("{$column} {$operator} {$param}");
+        $condition = "{$column} {$operator} {$param}";
+        $this->query->orWhere($condition);
+        $this->whereClauses[] = ['type' => 'or', 'condition' => $condition];
 
         return $this;
     }
 
     public function whereNull(string $column): static
     {
-        $this->query->andWhere("{$column} IS NULL");
+        $condition = "{$column} IS NULL";
+        $this->query->andWhere($condition);
+        $this->whereClauses[] = ['type' => 'and', 'condition' => $condition];
 
         return $this;
     }
 
     public function whereNotNull(string $column): static
     {
-        $this->query->andWhere("{$column} IS NOT NULL");
+        $condition = "{$column} IS NOT NULL";
+        $this->query->andWhere($condition);
+        $this->whereClauses[] = ['type' => 'and', 'condition' => $condition];
 
         return $this;
     }
@@ -96,7 +107,9 @@ final class QueryBuilder
     {
         $minParam = $this->bindParam($min);
         $maxParam = $this->bindParam($max);
-        $this->query->andWhere("{$column} BETWEEN {$minParam} AND {$maxParam}");
+        $condition = "{$column} BETWEEN {$minParam} AND {$maxParam}";
+        $this->query->andWhere($condition);
+        $this->whereClauses[] = ['type' => 'and', 'condition' => $condition];
 
         return $this;
     }
@@ -105,7 +118,9 @@ final class QueryBuilder
     {
         $minParam = $this->bindParam($min);
         $maxParam = $this->bindParam($max);
-        $this->query->andWhere("{$column} NOT BETWEEN {$minParam} AND {$maxParam}");
+        $condition = "{$column} NOT BETWEEN {$minParam} AND {$maxParam}";
+        $this->query->andWhere($condition);
+        $this->whereClauses[] = ['type' => 'and', 'condition' => $condition];
 
         return $this;
     }
@@ -116,13 +131,17 @@ final class QueryBuilder
         if ($values === []) {
             // No possible match — short-circuit to a condition that's
             // always false rather than emitting invalid SQL ("IN ()").
-            $this->query->andWhere('1 = 0');
+            $condition = '1 = 0';
+            $this->query->andWhere($condition);
+            $this->whereClauses[] = ['type' => 'and', 'condition' => $condition];
 
             return $this;
         }
 
         $placeholders = array_map(fn ($value) => $this->bindParam($value), $values);
-        $this->query->andWhere(sprintf('%s IN (%s)', $column, implode(', ', $placeholders)));
+        $condition = sprintf('%s IN (%s)', $column, implode(', ', $placeholders));
+        $this->query->andWhere($condition);
+        $this->whereClauses[] = ['type' => 'and', 'condition' => $condition];
 
         return $this;
     }
@@ -508,13 +527,13 @@ final class QueryBuilder
      */
     private function copyWhereOnto(DbalQueryBuilder $target): void
     {
-        $where = $this->query->getQueryPart('where');
-
-        if ($where === null) {
-            return;
+        foreach ($this->whereClauses as $clause) {
+            if ($clause['type'] === 'or') {
+                $target->orWhere($clause['condition']);
+            } else {
+                $target->andWhere($clause['condition']);
+            }
         }
-
-        $target->where($where);
 
         foreach ($this->query->getParameters() as $key => $value) {
             $target->setParameter($key, $value);

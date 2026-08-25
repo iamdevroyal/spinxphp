@@ -132,3 +132,13 @@ if (!function_exists('logger')) {
         \Spinx\Log\Log::info($message, $context);
     }
 }
+
+if (!function_exists('redirect')) {
+    /**
+     * Create a redirect HTTP response.
+     */
+    function redirect(string $to, int $status = 302): \Symfony\Component\HttpFoundation\RedirectResponse
+    {
+        return new \Symfony\Component\HttpFoundation\RedirectResponse($to, $status);
+    }
+}

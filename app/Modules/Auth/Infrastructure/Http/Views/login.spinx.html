@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ $title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0A0A0C;
+            --bg-card: #121216;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-focus: #E11D63;
+            --primary: #E11D63;
+            --primary-glow: rgba(225, 29, 99, 0.25);
+            --primary-light: #FFB2BF;
+            --text-main: #EDEDF0;
+            --text-muted: #8E8E98;
+            --danger-bg: rgba(239, 68, 68, 0.12);
+            --danger-border: rgba(239, 68, 68, 0.3);
+            --danger-text: #FCA5A5;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(225, 29, 99, 0.15) 0%, transparent 55%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+        }
+
+        .auth-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        .brand-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .brand-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #E11D63, #8B5CF6);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: #fff;
+            box-shadow: 0 0 20px var(--primary-glow);
+            margin-bottom: 0.75rem;
+        }
+
+        .brand-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .alert-danger {
+            background: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+            color: var(--danger-text);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            background: #08080A;
+            border: 1px solid var(--border-color);
+            color: #FFFFFF;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            font-family: inherit;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: linear-gradient(135deg, #E11D63, #BE185D);
+            border: none;
+            color: #FFFFFF;
+            padding: 0.85rem;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 0.5rem;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(225, 29, 99, 0.4);
+        }
+
+        .auth-footer {
+            margin-top: 1.75rem;
+            text-align: center;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+        }
+
+        .auth-footer a {
+            color: var(--primary-light);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .auth-footer a:hover {
+            color: #FFFFFF;
+            text-decoration: underline;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 1.25rem;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <div class="brand-header">
+            <div class="brand-logo">S</div>
+            <h1 class="brand-title">Welcome back</h1>
+            <p class="brand-subtitle">Sign in to your Spinx application</p>
+        </div>
+
+        @if ($error)
+            <div class="alert-danger">
+                <span>⚠️</span>
+                <span>{{ $error }}</span>
+            </div>
+        @endif
+
+        <form action="/login" method="POST">
+            @csrf
+
+            <div class="form-group">
+                <label class="form-label" for="email">Email Address</label>
+                <input class="form-input" type="email" id="email" name="email" value="{{ $email }}" placeholder="you@example.com" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input class="form-input" type="password" id="password" name="password" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn-submit">Sign In</button>
+        </form>
+
+        <div class="auth-footer">
+            Don't have an account? <a href="/register">Create one</a>
+            <br>
+            <a href="/" class="back-link">← Return to home</a>
+        </div>
+    </div>
+</body>
+</html>

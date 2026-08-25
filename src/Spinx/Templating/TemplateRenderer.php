@@ -50,15 +50,6 @@ final class TemplateRenderer
     {
         $token = \Spinx\Security\Csrf::current();
 
-        if ($token === null) {
-            // CsrfMiddleware isn't attached to this route, so there's no
-            // current-request token to embed. An empty field is safer
-            // than throwing — plenty of routes render forms without
-            // needing CSRF protection (e.g. a public search box), and
-            // this shouldn't break rendering for those.
-            return '';
-        }
-
         return '<input type="hidden" name="_token" value="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
     }
 }

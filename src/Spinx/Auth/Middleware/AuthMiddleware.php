@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Spinx\Auth\Middleware;
 
 use Spinx\Auth\Auth;
+use Spinx\Http\Middleware\MiddlewareInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
  *       ->middleware(['auth'])
  *       ->controller('dashboard_controller');
  */
-final class AuthMiddleware
+final class AuthMiddleware implements MiddlewareInterface
 {
     public function process(Request $request, \Closure $next): Response
     {

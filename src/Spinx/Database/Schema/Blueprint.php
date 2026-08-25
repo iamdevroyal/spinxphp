@@ -16,6 +16,8 @@ use Doctrine\DBAL\Types\Types;
  */
 final class Blueprint
 {
+    private ?string $lastColumn = null;
+
     public function __construct(
         private readonly Table $table,
     ) {
@@ -23,6 +25,7 @@ final class Blueprint
 
     public function id(string $name = 'id'): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::BIGINT, ['autoincrement' => true, 'unsigned' => true]);
         $this->table->setPrimaryKey([$name]);
 
@@ -31,6 +34,7 @@ final class Blueprint
 
     public function string(string $name, int $length = 255, bool $nullable = false): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::STRING, ['length' => $length, 'notnull' => !$nullable]);
 
         return $this;
@@ -38,6 +42,7 @@ final class Blueprint
 
     public function text(string $name, bool $nullable = false): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::TEXT, ['notnull' => !$nullable]);
 
         return $this;
@@ -45,6 +50,7 @@ final class Blueprint
 
     public function integer(string $name, bool $nullable = false, bool $unsigned = false): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::INTEGER, ['notnull' => !$nullable, 'unsigned' => $unsigned]);
 
         return $this;
@@ -52,6 +58,7 @@ final class Blueprint
 
     public function bigInteger(string $name, bool $nullable = false, bool $unsigned = false): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::BIGINT, ['notnull' => !$nullable, 'unsigned' => $unsigned]);
 
         return $this;
@@ -59,6 +66,7 @@ final class Blueprint
 
     public function boolean(string $name, bool $nullable = false): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::BOOLEAN, ['notnull' => !$nullable]);
 
         return $this;
@@ -66,6 +74,7 @@ final class Blueprint
 
     public function decimal(string $name, int $precision = 10, int $scale = 2, bool $nullable = false): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::DECIMAL, ['precision' => $precision, 'scale' => $scale, 'notnull' => !$nullable]);
 
         return $this;
@@ -73,6 +82,7 @@ final class Blueprint
 
     public function json(string $name, bool $nullable = false): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::JSON, ['notnull' => !$nullable]);
 
         return $this;
@@ -80,6 +90,7 @@ final class Blueprint
 
     public function timestamp(string $name, bool $nullable = true): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::DATETIME_IMMUTABLE, ['notnull' => !$nullable]);
 
         return $this;
@@ -103,6 +114,7 @@ final class Blueprint
     /** Adds an unsigned bigint foreign-key column (does not add the constraint itself — see foreign()). */
     public function foreignId(string $name): static
     {
+        $this->lastColumn = $name;
         $this->table->addColumn($name, Types::BIGINT, ['unsigned' => true, 'notnull' => true]);
 
         return $this;
@@ -110,14 +122,26 @@ final class Blueprint
 
     public function index(string ...$columns): static
     {
-        $this->table->addIndex($columns);
+        if (empty($columns) && $this->lastColumn !== null) {
+            $columns = [$this->lastColumn];
+        }
+
+        if (!empty($columns)) {
+            $this->table->addIndex($columns);
+        }
 
         return $this;
     }
 
     public function unique(string ...$columns): static
     {
-        $this->table->addUniqueIndex($columns);
+        if (empty($columns) && $this->lastColumn !== null) {
+            $columns = [$this->lastColumn];
+        }
+
+        if (!empty($columns)) {
+            $this->table->addUniqueIndex($columns);
+        }
 
         return $this;
     }

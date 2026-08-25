@@ -11,7 +11,7 @@ return [
     | The Eloquent model class representing application users.
     |
     */
-    'model' => env('AUTH_MODEL', 'App\\Modules\\Users\\Infrastructure\\Persistence\\Models\\User'),
+    'model' => env('AUTH_MODEL', 'App\\Modules\\Auth\\Infrastructure\\Persistence\\Models\\User'),
 
     'primary_key' => 'id',
     'password_field' => 'password',

@@ -39,10 +39,15 @@ final class Csrf
         return self::$currentToken = (is_string($cookieToken) && $cookieToken !== '') ? $cookieToken : self::generateToken();
     }
 
-    /** The token for the CURRENT request — read by the @csrf directive via TemplateRenderer::csrfField(). Null if no request has set one yet (e.g. CsrfMiddleware isn't attached to this route). */
-    public static function current(): ?string
+    /** The token for the CURRENT request — read by the @csrf directive via TemplateRenderer::csrfField(). Generates on-demand if not already initialized. */
+    public static function current(): string
     {
-        return self::$currentToken;
+        return self::$currentToken ??= self::generateToken();
+    }
+
+    public static function token(): string
+    {
+        return self::current();
     }
 
     public static function generateToken(): string
@@ -50,10 +55,17 @@ final class Csrf
         return bin2hex(random_bytes(32));
     }
 
-    public static function verify(string $submitted): bool
+    public static function verify(string $submitted, ?Request $request = null): bool
     {
-        return self::$currentToken !== null
-            && $submitted !== ''
-            && hash_equals(self::$currentToken, $submitted);
+        if ($submitted === '') {
+            return false;
+        }
+
+        $expected = $request?->cookies->get(self::COOKIE_NAME);
+        if (is_string($expected) && $expected !== '' && hash_equals($expected, $submitted)) {
+            return true;
+        }
+
+        return self::$currentToken !== null && hash_equals(self::$currentToken, $submitted);
     }
 }
