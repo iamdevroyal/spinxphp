@@ -18,8 +18,7 @@ safe raw HTML (and never for anything derived from user input).
 
 ## CSRF — `Spinx\Http\Middleware\CsrfMiddleware`
 
-Double-submit-cookie pattern (not session-backed — no session subsystem
-exists in this framework). A token is set as a cookie and echoed into
+Double-submit-cookie pattern. A token is set as a cookie and echoed into
 forms via `@csrf`; a POST/PUT/PATCH/DELETE is only accepted if the
 submitted token matches the cookie.
 
@@ -87,6 +86,6 @@ one-size-fits-all default).
 - **Mass-assignment**: `Model::$fillable` guards `fill()`/`create()`
   by default — anything not listed is silently dropped, mirroring
   Eloquent's guarded-by-default behavior.
-- **Password hashing**: not yet provided as a framework helper — use
-  PHP's built-in `password_hash()`/`password_verify()` (bcrypt/argon2),
-  which need no framework wrapper to use correctly.
+- **Password hashing**: use `Spinx\Auth\Hash` — the built-in bcrypt
+  helper (see [auth.md](auth.md#password-hashing)). `Hash::make()`,
+  `Hash::check()`, and `Hash::needsRehash()` cover all production use cases.

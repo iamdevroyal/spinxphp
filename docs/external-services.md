@@ -47,7 +47,7 @@ final class PaystackService
         return $response->json();
     }
 
-    public function initializeTransaction(string $email, int amountKobo): string
+    public function initializeTransaction(string $email, int $amountKobo): string
     {
         $response = $this->client
             ->post('/transaction/initialize', ['email' => $email, 'amount' => $amountKobo])
