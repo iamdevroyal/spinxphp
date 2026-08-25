@@ -12,8 +12,8 @@
             --bg-base: #090d16;
             --bg-card: #0f172a;
             --border-color: rgba(255, 255, 255, 0.08);
-            --primary: #6366f1;
-            --primary-glow: rgba(99, 102, 241, 0.3);
+            --primary: #E11D63;
+            --primary-glow: rgba(225, 29, 99, 0.3);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
         }
@@ -33,49 +33,51 @@
             flex-direction: column;
             overflow: hidden;
             background-image: 
-                radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 15% 15%, rgba(225, 29, 99, 0.08) 0%, transparent 40%),
                 radial-gradient(circle at 85% 85%, rgba(14, 165, 233, 0.05) 0%, transparent 40%);
         }
 
         header {
-            background: rgba(15, 23, 42, 0.75);
+            background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-color);
-            padding: 12px 24px;
+            padding: 10px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
             z-index: 50;
         }
 
         .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
 
         .logo-badge {
-            width: 34px;
-            height: 34px;
+            width: 32px;
+            height: 32px;
             border-radius: 8px;
-            background: linear-gradient(135deg, #6366f1, #0ea5e9);
+            background: linear-gradient(135deg, #E11D63, #8B5CF6);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            font-size: 16px;
+            font-weight: 800;
+            font-size: 15px;
             color: #fff;
             box-shadow: 0 0 16px var(--primary-glow);
         }
 
         .brand-title {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 700;
             letter-spacing: -0.01em;
         }
 
         .brand-subtitle {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-muted);
             font-weight: 500;
         }
@@ -83,7 +85,8 @@
         .controls {
             display: flex;
             align-items: center;
-            gap: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .control-group {
@@ -92,15 +95,15 @@
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 3px;
+            padding: 2px;
         }
 
         .select-input, .text-input {
             background: transparent;
             border: none;
             color: var(--text-main);
-            padding: 6px 12px;
-            font-size: 13px;
+            padding: 6px 10px;
+            font-size: 12px;
             font-family: inherit;
             outline: none;
             cursor: pointer;
@@ -115,7 +118,7 @@
             background: transparent;
             border: none;
             color: var(--text-muted);
-            padding: 6px 10px;
+            padding: 6px 9px;
             border-radius: 6px;
             cursor: pointer;
             display: flex;
@@ -141,8 +144,10 @@
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 4px 12px;
-            width: 320px;
+            padding: 4px 10px;
+            min-width: 260px;
+            max-width: 380px;
+            flex: 1;
         }
 
         .url-bar input {
@@ -162,25 +167,34 @@
             justify-content: center;
             position: relative;
             overflow: auto;
-            padding: 40px;
+            padding: 30px;
         }
 
         /* Device Mockup Shell */
+        .device-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center center;
+        }
+
         .device-container {
             position: relative;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
-            background: #000;
-            border-radius: 48px;
-            padding: 12px;
+            background: #0f121a;
+            border: 3px solid #282f3f;
+            border-radius: 44px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .device-screen {
-            border-radius: 38px;
+            border-radius: 34px;
             overflow: hidden;
-            background: #fff;
+            background: #000;
             position: relative;
             flex: 1;
             width: 100%;
@@ -189,11 +203,11 @@
 
         .device-notch {
             position: absolute;
-            top: 10px;
+            top: 8px;
             left: 50%;
             transform: translateX(-50%);
-            width: 110px;
-            height: 28px;
+            width: 100px;
+            height: 24px;
             background: #000;
             border-radius: 20px;
             z-index: 20;
@@ -204,22 +218,37 @@
             width: 100%;
             height: 100%;
             border: none;
-            background: #fff;
+            background: #0A0A0C;
         }
 
         .res-label {
-            position: absolute;
-            bottom: 12px;
+            position: fixed;
+            bottom: 16px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 11px;
             font-family: 'JetBrains Mono', monospace;
             color: var(--text-muted);
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
             border: 1px solid var(--border-color);
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 12px;
             pointer-events: none;
+            z-index: 40;
+        }
+
+        @media (max-width: 640px) {
+            header {
+                padding: 8px 12px;
+            }
+            .brand-subtitle {
+                display: none;
+            }
+            .url-bar {
+                min-width: 100%;
+                order: 3;
+            }
         }
     </style>
 </head>
@@ -229,7 +258,7 @@
             <div class="logo-badge">S</div>
             <div>
                 <div class="brand-title">Spinx Mobile Preview</div>
-                <div class="brand-subtitle">Responsive Device Container</div>
+                <div class="brand-subtitle">Interactive Multi-Device Container</div>
             </div>
         </div>
 
@@ -243,15 +272,26 @@
                 <select id="deviceSelect" class="select-input">
                     <option value="393x852" data-name="iPhone 15 Pro">iPhone 15 Pro (393 × 852)</option>
                     <option value="375x667" data-name="iPhone SE">iPhone SE (375 × 667)</option>
-                    <option value="412x915" data-name="Google Pixel 7">Google Pixel 7 (412 × 915)</option>
-                    <option value="360x780" data-name="Samsung Galaxy S23">Samsung Galaxy S23 (360 × 780)</option>
-                    <option value="820x1180" data-name="iPad Air">iPad Air (820 × 1180)</option>
+                    <option value="412x915" data-name="Pixel 8">Pixel 8 (412 × 915)</option>
+                    <option value="360x780" data-name="Galaxy S24">Galaxy S24 (360 × 780)</option>
+                    <option value="768x1024" data-name="iPad Mini">iPad Mini (768 × 1024)</option>
+                    <option value="1280x800" data-name="Desktop">Desktop (1280 × 800)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <select id="zoomSelect" class="select-input" title="Scale / Zoom">
+                    <option value="auto">Auto Fit</option>
+                    <option value="1">100%</option>
+                    <option value="0.85">85%</option>
+                    <option value="0.75">75%</option>
+                    <option value="0.5">50%</option>
                 </select>
             </div>
 
             <div class="control-group">
                 <button id="rotateBtn" class="btn-icon" title="Rotate orientation">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                     </svg>
                 </button>
@@ -259,20 +299,27 @@
 
             <div class="control-group">
                 <button id="reloadBtn" class="btn-icon" title="Reload iframe">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         <path d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                    </svg>
+                </button>
+                <button id="openTabBtn" class="btn-icon" title="Open in new browser tab">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                     </svg>
                 </button>
             </div>
         </div>
     </header>
 
-    <div class="workspace">
-        <div class="device-container" id="deviceContainer">
-            <div class="device-notch" id="deviceNotch"></div>
-            <div class="device-screen">
-                <iframe id="previewFrame" src="about:blank"></iframe>
+    <div class="workspace" id="workspace">
+        <div class="device-wrapper" id="deviceWrapper">
+            <div class="device-container" id="deviceContainer">
+                <div class="device-notch" id="deviceNotch"></div>
+                <div class="device-screen">
+                    <iframe id="previewFrame" src="about:blank"></iframe>
+                </div>
             </div>
         </div>
         <div class="res-label" id="resLabel">393 × 852 px</div>
@@ -285,11 +332,15 @@
         const targetUrlInput = document.getElementById('targetUrl');
         const previewFrame = document.getElementById('previewFrame');
         const deviceSelect = document.getElementById('deviceSelect');
+        const zoomSelect = document.getElementById('zoomSelect');
         const rotateBtn = document.getElementById('rotateBtn');
         const reloadBtn = document.getElementById('reloadBtn');
+        const openTabBtn = document.getElementById('openTabBtn');
+        const deviceWrapper = document.getElementById('deviceWrapper');
         const deviceContainer = document.getElementById('deviceContainer');
         const deviceNotch = document.getElementById('deviceNotch');
         const resLabel = document.getElementById('resLabel');
+        const workspace = document.getElementById('workspace');
 
         let isLandscape = false;
 
@@ -305,15 +356,36 @@
                 [w, h] = [h, w];
                 deviceNotch.style.display = 'none';
             } else {
-                deviceNotch.style.display = w > 600 ? 'none' : 'block';
+                deviceNotch.style.display = w >= 600 ? 'none' : 'block';
             }
 
-            deviceContainer.style.width = `${w + 24}px`;
-            deviceContainer.style.height = `${h + 24}px`;
+            const isDesktop = w >= 1000;
+            deviceContainer.style.borderRadius = isDesktop ? '16px' : (w >= 600 ? '28px' : '44px');
+            deviceContainer.style.width = `${w + 20}px`;
+            deviceContainer.style.height = `${h + 20}px`;
+
             resLabel.textContent = `${w} × ${h} px (${isLandscape ? 'Landscape' : 'Portrait'})`;
+            applyZoom(w + 20, h + 20);
+        }
+
+        function applyZoom(containerW, containerH) {
+            const zoomMode = zoomSelect.value;
+
+            if (zoomMode === 'auto') {
+                const availW = workspace.clientWidth - 40;
+                const availH = workspace.clientHeight - 40;
+                const scaleW = availW / containerW;
+                const scaleH = availH / containerH;
+                const autoScale = Math.min(1, Math.min(scaleW, scaleH));
+                deviceWrapper.style.transform = `scale(${autoScale.toFixed(2)})`;
+            } else {
+                deviceWrapper.style.transform = `scale(${zoomMode})`;
+            }
         }
 
         deviceSelect.addEventListener('change', updateDeviceDimensions);
+        zoomSelect.addEventListener('change', updateDeviceDimensions);
+        window.addEventListener('resize', updateDeviceDimensions);
 
         rotateBtn.addEventListener('click', () => {
             isLandscape = !isLandscape;
@@ -323,6 +395,10 @@
 
         reloadBtn.addEventListener('click', () => {
             previewFrame.src = targetUrlInput.value;
+        });
+
+        openTabBtn.addEventListener('click', () => {
+            window.open(targetUrlInput.value, '_blank');
         });
 
         targetUrlInput.addEventListener('keydown', (e) => {

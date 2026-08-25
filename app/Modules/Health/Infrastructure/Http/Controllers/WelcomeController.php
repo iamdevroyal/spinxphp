@@ -33,7 +33,7 @@ final class WelcomeController
 
         $html = $this->renderer->render('welcome', [
             'title'        => 'Spinx Framework',
-            'spinxVersion' => '1.0.4',
+            'spinxVersion' => \Spinx\Kernel\Kernel::VERSION,
             'phpVersion'   => PHP_VERSION,
             'driver'       => $driverLabel,
             'frontend'     => $frontendLabel,
