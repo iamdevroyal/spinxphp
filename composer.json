@@ -1,5 +1,5 @@
 {
-    "name": "spinx/framework",
+    "name": "spinxphp/framework",
     "description": "A fast, lightweight PHP framework with enforced DDD architecture — flexible across persistent-process runtimes (RoadRunner, Swoole) without being tied to either.",
     "type": "library",
     "license": "MIT",
