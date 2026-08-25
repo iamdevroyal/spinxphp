@@ -1,30 +1,542 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
-    <title>{{ $title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ $title }} — Modern High-Performance PHP Framework</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
     @vite
+
+    <style>
+        :root {
+            --bg-base: #0A0A0C;
+            --bg-card: #121216;
+            --bg-card-hover: #18181E;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(225, 29, 99, 0.4);
+            --primary: #E11D63;
+            --primary-glow: rgba(225, 29, 99, 0.15);
+            --primary-light: #FFB2BF;
+            --text-main: #EDEDF0;
+            --text-muted: #8E8E98;
+            --text-dim: #5C5C66;
+            --code-bg: #070709;
+            --badge-bg: rgba(255, 255, 255, 0.04);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            line-height: 1.5;
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(225, 29, 99, 0.12) 0%, transparent 60%),
+                radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
+            background-repeat: no-repeat;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem 4rem;
+        }
+
+        /* Top Bar */
+        .top-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #E11D63 0%, #8B5CF6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #FFFFFF;
+            box-shadow: 0 0 16px rgba(225, 29, 99, 0.5);
+        }
+
+        .brand-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #FFFFFF;
+        }
+
+        .brand-version {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            background: var(--badge-bg);
+            border: 1px solid var(--border-color);
+            color: var(--primary-light);
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            margin-left: 0.25rem;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: #FFFFFF;
+        }
+
+        .btn-docs {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: #FFFFFF;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-docs:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 4rem 0 3rem;
+            text-align: center;
+        }
+
+        .hero-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(225, 29, 99, 0.1);
+            border: 1px solid rgba(225, 29, 99, 0.25);
+            color: var(--primary-light);
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.04em;
+        }
+
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            box-shadow: 0 0 8px var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.4;
+                transform: scale(0.85);
+            }
+        }
+
+        .hero-title {
+            font-size: clamp(2.25rem, 5vw, 3.75rem);
+            font-weight: 800;
+            letter-spacing: -0.035em;
+            line-height: 1.1;
+            color: #FFFFFF;
+            margin-bottom: 1.25rem;
+        }
+
+        .hero-title .gradient-text {
+            background: linear-gradient(135deg, #FFFFFF 30%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-desc {
+            color: var(--text-muted);
+            font-size: 1.125rem;
+            max-width: 620px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.6;
+        }
+
+        /* Runtime Diagnostic Badges */
+        .diagnostics-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 3.5rem;
+        }
+
+        .diag-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+        }
+
+        .diag-pill .val {
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+
+        .diag-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10B981;
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+        }
+
+        /* Island Card Showcase */
+        .island-section {
+            background: linear-gradient(180deg, rgba(225, 29, 99, 0.06) 0%, rgba(18, 18, 22, 0.6) 100%);
+            border: 1px solid rgba(225, 29, 99, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 3.5rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .island-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        .island-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+
+        .island-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .island-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            background: rgba(225, 29, 99, 0.15);
+            color: var(--primary-light);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            border: 1px solid rgba(225, 29, 99, 0.3);
+        }
+
+        /* Features Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 4rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-icon {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .code-box {
+            background: var(--code-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.8125rem;
+            color: var(--text-dim);
+        }
+
+        .footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer a:hover {
+            color: #FFFFFF;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>{{ $title }}</h1>
+    <div class="container">
+        <!-- Top Navigation -->
+        <header class="top-nav">
+            <a href="/" class="brand">
+                <div class="brand-logo">S</div>
+                <div class="brand-name">Spinx</div>
+                <div class="brand-version">v{{ $spinxVersion }}</div>
+            </a>
 
-    @if($showIntro)
-        <p>Welcome to your new Spinx app. This page proves the directive
-        compiler, view caching, and Vue island hydration all work end to end.</p>
-    @else
-        <p>Intro hidden.</p>
-    @endif
+            <div class="nav-links">
+                <a href="{{ $docsUrl }}" target="_blank" rel="noopener noreferrer" class="nav-link">Documentation</a>
+                <a href="{{ $repoUrl }}" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
+                <a href="{{ $docsUrl }}/quickstart" target="_blank" rel="noopener noreferrer" class="btn-docs">
+                    <span>Quickstart Guide</span>
+                    <span>→</span>
+                </a>
+            </div>
+        </header>
 
-    <ul>
-    @foreach($features as $feature)
-        <li>{{ $feature }}</li>
-    @endforeach
-    </ul>
+        <!-- Hero Section -->
+        <main class="hero">
+            <div class="hero-tag">
+                <span class="pulse-dot"></span>
+                <span>SPINX RUNTIME ACTIVE</span>
+            </div>
 
-    {{-- The div below is emitted by @island. frontend/src/main.js scans for
-         [data-spinx-island] on DOMContentLoaded and mounts the matching
-         Vue component from frontend/src/islands/ onto it, passing the
-         data-spinx-props attribute through as props. --}}
-    @island('ExampleIsland', ['message' => $islandMessage])
+            <h1 class="hero-title">
+                Built for speed.<br>
+                <span class="gradient-text">Incapable of chaos.</span>
+            </h1>
+
+            <p class="hero-desc">
+                Your Spinx application is running in a high-concurrency persistent worker runtime. Route matching, DI
+                reflection, and database schema mappings are primed in memory.
+            </p>
+
+            <!-- Diagnostics Bar -->
+            <div class="diagnostics-bar">
+                <div class="diag-pill">
+                    <span class="diag-dot"></span>
+                    <span>Runtime:</span>
+                    <span class="val">{{ $driver }}</span>
+                </div>
+                <div class="diag-pill">
+                    <span>PHP:</span>
+                    <span class="val">v{{ $phpVersion }}</span>
+                </div>
+                <div class="diag-pill">
+                    <span>Frontend:</span>
+                    <span class="val">{{ $frontend }}</span>
+                </div>
+                <div class="diag-pill">
+                    <span>Environment:</span>
+                    <span class="val">{{ $env }}</span>
+                </div>
+                <div class="diag-pill">
+                    <span>Modules Active:</span>
+                    <span class="val">{{ $modulesCount }}</span>
+                </div>
+            </div>
+
+            <!-- Reactive Island Hydration Live Demo -->
+            <div class="island-section">
+                <div class="island-header">
+                    <div class="island-title">
+                        <span>⚡ Reactive Island Hydration</span>
+                        <span class="island-tag">@island('ExampleIsland')</span>
+                    </div>
+                    <span class="font-mono" style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hydrated via Vite HMR
+                    </span>
+                </div>
+
+                {{-- Client-side reactive island hydrated via Vite --}}
+                @island('ExampleIsland', [
+                'message' => 'Reactive Client State Hydrated Successfully',
+                'runtime' => $driver,
+                'timestamp' => date('H:i:s')
+                ])
+            </div>
+
+            <!-- Feature Cards & Cheatsheet Grid -->
+            <div class="grid">
+                <div class="card">
+                    <div>
+                        <div class="card-icon">🏗️</div>
+                        <div class="card-title">Enforced DDD Modules</div>
+                        <div class="card-desc">Code is organized into strict Domain-Driven Design boundaries. No loose
+                            controllers.</div>
+                    </div>
+                    <div class="code-box">
+                        <span>php spinx make:module Billing</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div>
+                        <div class="card-icon">🚦</div>
+                        <div class="card-title">Fluent Routing DSL</div>
+                        <div class="card-desc">Declare routes, controllers, and middleware aliases fluently in
+                            module.php with autowiring.</div>
+                    </div>
+                    <div class="code-box">
+                        <span>Route::get(['invoices', '/invoices'])</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div>
+                        <div class="card-icon">🗄️</div>
+                        <div class="card-title">DBAL 4 Active Record</div>
+                        <div class="card-desc">Schema-cached columns, selectWithout, when/then conditional querying, and
+                            atomic row locking.</div>
+                    </div>
+                    <div class="code-box">
+                        <span>php spinx schema:compile</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div>
+                        <div class="card-icon">📱</div>
+                        <div class="card-title">Mobile Device Preview</div>
+                        <div class="card-desc">Test your views in an interactive responsive mobile preview container
+                            with device bezels.</div>
+                    </div>
+                    <div class="code-box">
+                        <span>php spinx preview --mobile</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div>
+                Spinx Framework v{{ $spinxVersion }} &bull; Open-source under MIT License
+            </div>
+            <div style="display: flex; gap: 1.25rem;">
+                <a href="{{ $docsUrl }}/architecture" target="_blank" rel="noopener noreferrer">Architecture</a>
+                <a href="{{ $docsUrl }}/routing" target="_blank" rel="noopener noreferrer">Routing</a>
+                <a href="{{ $docsUrl }}/auth" target="_blank" rel="noopener noreferrer">Auth & Sessions</a>
+                <a href="{{ $docsUrl }}/database-orm" target="_blank" rel="noopener noreferrer">Database ORM</a>
+                <a href="{{ $docsUrl }}/cli-reference" target="_blank" rel="noopener noreferrer">CLI Reference</a>
+            </div>
+        </footer>
+    </div>
 </body>
+
 </html>

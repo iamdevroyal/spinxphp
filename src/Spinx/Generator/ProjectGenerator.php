@@ -25,6 +25,7 @@ final class ProjectGenerator
         'spinx',
         'config',
         'public',
+        'resources',
         'database',
         'tools',
         'docs',
