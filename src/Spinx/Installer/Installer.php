@@ -28,12 +28,33 @@ final class Installer
 {
     private bool $ansi;
 
+    private $tty = null;
+
     public function __construct(
         private readonly string $projectRoot,
     ) {
         $this->ansi = !isset($_SERVER['NO_COLOR'])
             && function_exists('posix_isatty')
             && @posix_isatty(STDOUT);
+
+        // Composer's post-install hook pipes STDIN closed so feof(STDIN)
+        // returns true immediately, causing all prompts to auto-default.
+        // We reopen the real terminal device so the developer can actually
+        // type their answers.
+        if (PHP_OS_FAMILY === 'Windows') {
+            // phpcs:ignore
+            $tty = @fopen('CONIN$', 'rb');
+        } else {
+            $tty = @fopen('/dev/tty', 'rb');
+        }
+        $this->tty = ($tty !== false) ? $tty : null;
+    }
+
+    public function __destruct()
+    {
+        if ($this->tty !== null && is_resource($this->tty)) {
+            fclose($this->tty);
+        }
     }
 
     public static function run(): void
@@ -131,7 +152,7 @@ final class Installer
             $frontendDir = $this->projectRoot . '/frontend';
             if (is_dir($frontendDir) && is_file($frontendDir . '/package.json')) {
                 $this->writeln($this->dim('  ◌ Running npm install in frontend/...'));
-                $npmOk = $this->runSubprocess(['npm', 'install'], $frontendDir);
+                $npmOk = $this->runSubprocess([...$this->npmCmd(), 'install'], $frontendDir);
                 if ($npmOk) {
                     $this->writeln($this->green('  ✓ npm dependencies installed'));
                 } else {
@@ -178,12 +199,12 @@ final class Installer
 
         $this->write($prompt);
 
-        if ($this->isNonInteractive()) {
+        if ($this->tty === null) {
             $this->writeln($default);
             return $default;
         }
 
-        $answer = trim((string) fgets(STDIN));
+        $answer = trim((string) fgets($this->tty));
 
         return $answer !== '' ? $answer : $default;
     }
@@ -199,12 +220,12 @@ final class Installer
 
         $this->write($this->dim("  Enter number [default: {$default}]: "));
 
-        if ($this->isNonInteractive()) {
+        if ($this->tty === null) {
             $this->writeln((string) $default);
             return $default;
         }
 
-        $raw = trim((string) fgets(STDIN));
+        $raw = trim((string) fgets($this->tty));
 
         if ($raw === '') {
             return $default;
@@ -224,12 +245,12 @@ final class Installer
         $hint = $default ? '[Y/n]' : '[y/N]';
         $this->write($this->bold($question) . ' ' . $this->dim($hint) . ' ');
 
-        if ($this->isNonInteractive()) {
+        if ($this->tty === null) {
             $this->writeln($default ? 'yes' : 'no');
             return $default;
         }
 
-        $raw = strtolower(trim((string) fgets(STDIN)));
+        $raw = strtolower(trim((string) fgets($this->tty)));
 
         if ($raw === '') {
             return $default;
@@ -238,17 +259,15 @@ final class Installer
         return in_array($raw, ['y', 'yes'], true);
     }
 
-    private function isNonInteractive(): bool
+    /** @return string[] */
+    private function npmCmd(): array
     {
-        if (!defined('STDIN') || !is_resource(STDIN)) {
-            return true;
+        // On Windows, `npm` is a batch script — proc_open with an array
+        // of args requires the actual executable, which is npm.cmd.
+        if (PHP_OS_FAMILY === 'Windows') {
+            return ['npm.cmd'];
         }
-
-        if (feof(STDIN)) {
-            return true;
-        }
-
-        return false;
+        return ['npm'];
     }
 
     /** @return array{driver: string, host: string, port: string, database: string, username: string, password: string} */

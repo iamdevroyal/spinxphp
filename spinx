@@ -142,6 +142,20 @@ function serveRoadRunner(string $projectRoot): void
         exit(1);
     }
 
+    // Load .env so APP_URL is available for the welcome message
+    $envFile = $projectRoot . '/.env';
+    $envVars = [];
+    if (is_file($envFile)) {
+        foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            if (str_starts_with(trim($line), '#') || !str_contains($line, '=')) {
+                continue;
+            }
+            [$k, $v] = explode('=', $line, 2);
+            $envVars[trim($k)] = trim($v, " \t\n\r\0\x0B\"'");
+        }
+    }
+    $appUrl = rtrim($envVars['APP_URL'] ?? 'http://localhost:8080', '/');
+
     $vite = startViteDevServer($projectRoot);
 
     // Best-effort cleanup: whether the process exits normally, via an
@@ -164,6 +178,13 @@ function serveRoadRunner(string $projectRoot): void
     }
 
     fwrite(STDOUT, "[Spinx] Starting RoadRunner server using {$rrBinary} ...\n");
+    fwrite(STDOUT, "\n");
+    fwrite(STDOUT, "  ✔ Application ready!\n");
+    fwrite(STDOUT, "    → Local:   {$appUrl}\n");
+    if ($vite !== null) {
+        fwrite(STDOUT, "    → Vite HMR: http://localhost:5173\n");
+    }
+    fwrite(STDOUT, "\n");
 
     $process = proc_open(
         [$rrBinary, 'serve', '-c', $projectRoot . '/.rr.yaml'],
@@ -250,8 +271,12 @@ function startViteDevServer(string $projectRoot): ?array
     $hotFile = $hotDir . '/hot';
     file_put_contents($hotFile, $devServerUrl);
 
+    // On Windows, npm is a batch script — proc_open with an array cmd
+    // requires npm.cmd, not npm, or it gets 'file not found'.
+    $npmBin = PHP_OS_FAMILY === 'Windows' ? 'npm.cmd' : 'npm';
+
     $process = proc_open(
-        ['npm', 'run', 'dev'],
+        [$npmBin, 'run', 'dev'],
         [STDIN, STDOUT, STDERR],
         $pipes,
         $frontendDir
