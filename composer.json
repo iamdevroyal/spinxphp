@@ -25,10 +25,10 @@
         "islands",
         "openapi"
     ],
-    "homepage": "https://spinx.dev",
+    "homepage": "https://spinxphp.pages.dev",
     "support": {
         "source": "https://github.com/iamdevroyal/spinxphp",
-        "docs": "https://spinx.dev/docs"
+        "docs": "https://spinxphp.pages.dev/docs"
     },
     "require": {
         "php": ">=8.2",

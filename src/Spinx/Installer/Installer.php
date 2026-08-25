@@ -392,7 +392,7 @@ final class Installer
 
         $this->writeln($this->pink('    php spinx serve'));
         $this->newLine();
-        $this->writeln($this->dim('  Docs: https://spinx.dev/docs'));
+        $this->writeln($this->dim('  Docs: https://spinxphp.pages.dev/docs'));
         $this->writeln($this->dim('  GitHub: https://github.com/iamdevroyal/spinxphp'));
         $this->newLine();
     }

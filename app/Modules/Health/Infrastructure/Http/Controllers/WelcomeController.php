@@ -39,7 +39,7 @@ final class WelcomeController
             'frontend'     => $frontendLabel,
             'env'          => ucfirst((string) $env),
             'modulesCount' => is_array($modules) ? count($modules) : 2,
-            'docsUrl'      => 'https://spinx.pages.dev/docs',
+            'docsUrl'      => 'https://spinxphp.pages.dev/docs',
             'repoUrl'      => 'https://github.com/iamdevroyal/spinxphp',
         ]);
 
