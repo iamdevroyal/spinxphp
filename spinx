@@ -271,12 +271,15 @@ function startViteDevServer(string $projectRoot): ?array
     $hotFile = $hotDir . '/hot';
     file_put_contents($hotFile, $devServerUrl);
 
-    // On Windows, npm is a batch script — proc_open with an array cmd
-    // requires npm.cmd, not npm, or it gets 'file not found'.
-    $npmBin = PHP_OS_FAMILY === 'Windows' ? 'npm.cmd' : 'npm';
+    $viteBin = $frontendDir . '/node_modules/vite/bin/vite.js';
+    if (is_file($viteBin)) {
+        $cmd = ['node', $viteBin];
+    } else {
+        $cmd = PHP_OS_FAMILY === 'Windows' ? ['cmd', '/c', 'npm', 'run', 'dev'] : ['npm', 'run', 'dev'];
+    }
 
     $process = proc_open(
-        [$npmBin, 'run', 'dev'],
+        $cmd,
         [STDIN, STDOUT, STDERR],
         $pipes,
         $frontendDir

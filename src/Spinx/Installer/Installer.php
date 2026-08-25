@@ -10,66 +10,47 @@ namespace Spinx\Installer;
  *
  *   composer create-project spinxphp/framework my-app
  *
- * Guides the developer through 5 setup questions (app name, frontend, DB
+ * Guides the developer through setup questions (app name, frontend, DB
  * driver, runtime driver, app URL), writes a configured .env, updates
- * spinx.json, and then — crucially — downloads the RoadRunner binary
- * automatically via `vendor/bin/rr get` so the developer never has to
- * know that step exists.
- *
- * Design rules:
- *  - Zero external dependencies — uses only standard PHP streams (STDIN)
- *    and proc_open for child processes.
- *  - Non-interactive safe: If running in CI or piped mode (feof(STDIN)),
- *    immediately defaults all choices without blocking.
- *  - Never throws — all failures print a friendly message and continue.
- *  - ANSI colour output on terminals that support it.
+ * spinx.json, downloads the RoadRunner binary automatically via
+ * `vendor/bin/rr get`, and displays the next steps to start development.
  */
 final class Installer
 {
     private bool $ansi;
 
-    private $tty = null;
+    /** @var object|null Composer\IO\IOInterface */
+    private ?object $io;
 
     public function __construct(
         private readonly string $projectRoot,
+        ?object $io = null,
     ) {
+        $this->io = $io;
         $this->ansi = !isset($_SERVER['NO_COLOR'])
             && function_exists('posix_isatty')
             && @posix_isatty(STDOUT);
-
-        // Composer's post-install hook pipes STDIN closed so feof(STDIN)
-        // returns true immediately, causing all prompts to auto-default.
-        // We reopen the real terminal device so the developer can actually
-        // type their answers.
-        if (PHP_OS_FAMILY === 'Windows') {
-            // phpcs:ignore
-            $tty = @fopen('CONIN$', 'rb');
-        } else {
-            $tty = @fopen('/dev/tty', 'rb');
-        }
-        $this->tty = ($tty !== false) ? $tty : null;
     }
 
-    public function __destruct()
+    public static function postCreateProject(?object $event = null): void
     {
-        if ($this->tty !== null && is_resource($this->tty)) {
-            fclose($this->tty);
-        }
-    }
+        $io = ($event !== null && method_exists($event, 'getIO')) ? $event->getIO() : null;
 
-    public static function run(): void
-    {
         $cwd = (string) getcwd();
         if (is_file($cwd . '/spinx.json') || is_file($cwd . '/.env.example') || is_file($cwd . '/composer.json')) {
             $root = $cwd;
         } else {
-            // Fallback to relative parent if run from deep within vendor
             $root = is_file(dirname(__DIR__, 3) . '/spinx.json')
                 ? dirname(__DIR__, 3)
                 : dirname(__DIR__, 4);
         }
 
-        (new self($root))->install();
+        (new self($root, $io))->install();
+    }
+
+    public static function run(): void
+    {
+        self::postCreateProject();
     }
 
     public function install(): void
@@ -79,13 +60,13 @@ final class Installer
         // ── 1. App Name ─────────────────────────────────────────────────
         $defaultAppName = ucfirst(basename($this->projectRoot));
         $appName = $this->ask(
-            question: '  What is the name of your application?',
+            question: 'What is the name of your application?',
             default: $defaultAppName,
         );
 
         // ── 2. Frontend ──────────────────────────────────────────────────
         $frontend = $this->choice(
-            question: '  Which frontend adapter would you like to use?',
+            question: 'Which frontend adapter would you like to use?',
             choices:  ['Vue 3 (default)', 'React 19'],
             default:  0,
         );
@@ -93,7 +74,7 @@ final class Installer
 
         // ── 3. Database Driver ───────────────────────────────────────────
         $dbChoice = $this->choice(
-            question: '  Which database driver would you like to use?',
+            question: 'Which database driver would you like to use?',
             choices:  ['SQLite — zero-config, perfect for local dev (default)', 'MySQL', 'PostgreSQL'],
             default:  0,
         );
@@ -103,9 +84,9 @@ final class Installer
             default => ['driver' => 'pdo_sqlite', 'host' => '', 'port' => '', 'database' => '', 'username' => '', 'password' => ''],
         };
 
-        // ── 4. Runtime Driver ────────────────────────────────────────────
+        // ── 4. Runtime Driver ────────────────────────────────────
         $runtimeChoice = $this->choice(
-            question: '  Which runtime driver would you like to use?',
+            question: 'Which runtime driver would you like to use?',
             choices:  ['RoadRunner (recommended — works on Windows/Linux/macOS)', 'Swoole (Linux/Docker only)'],
             default:  0,
         );
@@ -114,7 +95,7 @@ final class Installer
         // ── 5. App URL ───────────────────────────────────────────────────
         $defaultPort = $runtimeDriver === 'swoole' ? '9501' : '8080';
         $appUrl = $this->ask(
-            question: '  What is your application URL?',
+            question: 'What is your application URL?',
             default: "http://localhost:{$defaultPort}",
         );
 
@@ -141,32 +122,10 @@ final class Installer
             }
         }
 
-        // ── Frontend npm setup ───────────────────────────────────────────
-        $this->newLine();
-        $installNpm = $this->confirm(
-            question: '  Install frontend npm dependencies now? (requires Node.js)',
-            default: true,
-        );
-
-        if ($installNpm) {
-            $frontendDir = $this->projectRoot . '/frontend';
-            if (is_dir($frontendDir) && is_file($frontendDir . '/package.json')) {
-                $this->writeln($this->dim('  ◌ Running npm install in frontend/...'));
-                $npmOk = $this->runSubprocess([...$this->npmCmd(), 'install'], $frontendDir);
-                if ($npmOk) {
-                    $this->writeln($this->green('  ✓ npm dependencies installed'));
-                } else {
-                    $this->writeln($this->yellow('  ⚠ npm install failed — run `cd frontend && npm install` manually'));
-                }
-            } else {
-                $this->writeln($this->yellow('  ⚠ frontend/package.json not found — skipping npm install'));
-            }
-        }
-
         // ── Run Migrations ───────────────────────────────────────────────
         $this->newLine();
         $runMigrations = $this->confirm(
-            question: '  Run database migrations now?',
+            question: 'Run database migrations now?',
             default: true,
         );
 
@@ -184,7 +143,7 @@ final class Installer
         }
 
         // ── Done ─────────────────────────────────────────────────────────
-        $this->printSummary($appName, $appUrl, $frontendKey, $runtimeDriver, $installNpm, $runMigrations);
+        $this->printSummary($appName, $appUrl, $frontendKey, $runtimeDriver, $runMigrations);
     }
 
     // ────────────────────────────────────────────────────────────────────
@@ -193,18 +152,19 @@ final class Installer
 
     private function ask(string $question, string $default = ''): string
     {
+        if ($this->io !== null && method_exists($this->io, 'ask')) {
+            $prompt = '  ' . $this->bold($question) . ($default !== '' ? ' ' . $this->dim("[{$default}]") . ' ' : ' ');
+            $answer = $this->io->ask($prompt, $default);
+            return trim((string) ($answer !== null && $answer !== '' ? $answer : $default));
+        }
+
         $prompt = $default !== ''
-            ? $this->bold($question) . $this->dim(" [{$default}]") . ' › '
-            : $this->bold($question) . ' › ';
+            ? '  ' . $this->bold($question) . $this->dim(" [{$default}]") . ' › '
+            : '  ' . $this->bold($question) . ' › ';
 
         $this->write($prompt);
 
-        if ($this->tty === null) {
-            $this->writeln($default);
-            return $default;
-        }
-
-        $answer = trim((string) fgets($this->tty));
+        $answer = trim((string) fgets(STDIN));
 
         return $answer !== '' ? $answer : $default;
     }
@@ -212,20 +172,20 @@ final class Installer
     /** @param string[] $choices */
     private function choice(string $question, array $choices, int $default = 0): int
     {
-        $this->writeln($this->bold($question));
+        if ($this->io !== null && method_exists($this->io, 'select')) {
+            $prompt = '  ' . $this->bold($question);
+            return (int) $this->io->select($prompt, $choices, $default);
+        }
+
+        $this->writeln('  ' . $this->bold($question));
         foreach ($choices as $idx => $label) {
             $marker = $idx === $default ? $this->green('❯') : ' ';
-            $this->writeln("  {$marker} [{$idx}] {$label}");
+            $this->writeln("    {$marker} [{$idx}] {$label}");
         }
 
-        $this->write($this->dim("  Enter number [default: {$default}]: "));
+        $this->write($this->dim("    Enter number [default: {$default}]: "));
 
-        if ($this->tty === null) {
-            $this->writeln((string) $default);
-            return $default;
-        }
-
-        $raw = trim((string) fgets($this->tty));
+        $raw = trim((string) fgets(STDIN));
 
         if ($raw === '') {
             return $default;
@@ -236,21 +196,22 @@ final class Installer
             return $num;
         }
 
-        $this->writeln($this->yellow("  Invalid choice — using default ({$default})"));
+        $this->writeln($this->yellow("    Invalid choice — using default ({$default})"));
         return $default;
     }
 
     private function confirm(string $question, bool $default = true): bool
     {
-        $hint = $default ? '[Y/n]' : '[y/N]';
-        $this->write($this->bold($question) . ' ' . $this->dim($hint) . ' ');
-
-        if ($this->tty === null) {
-            $this->writeln($default ? 'yes' : 'no');
-            return $default;
+        if ($this->io !== null && method_exists($this->io, 'askConfirmation')) {
+            $hint = $default ? '[Y/n]' : '[y/N]';
+            $prompt = '  ' . $this->bold($question) . ' ' . $this->dim($hint) . ' ';
+            return (bool) $this->io->askConfirmation($prompt, $default);
         }
 
-        $raw = strtolower(trim((string) fgets($this->tty)));
+        $hint = $default ? '[Y/n]' : '[y/N]';
+        $this->write('  ' . $this->bold($question) . ' ' . $this->dim($hint) . ' ');
+
+        $raw = strtolower(trim((string) fgets(STDIN)));
 
         if ($raw === '') {
             return $default;
@@ -259,27 +220,16 @@ final class Installer
         return in_array($raw, ['y', 'yes'], true);
     }
 
-    /** @return string[] */
-    private function npmCmd(): array
-    {
-        // On Windows, `npm` is a batch script — proc_open with an array
-        // of args requires the actual executable, which is npm.cmd.
-        if (PHP_OS_FAMILY === 'Windows') {
-            return ['npm.cmd'];
-        }
-        return ['npm'];
-    }
-
     /** @return array{driver: string, host: string, port: string, database: string, username: string, password: string} */
     private function askDatabaseCredentials(string $label, string $defaultPort): array
     {
-        $this->writeln($this->dim("  ── {$label} connection details ──"));
+        $this->writeln($this->dim("    ── {$label} connection details ──"));
         $driver   = $label === 'MySQL' ? 'pdo_mysql' : 'pdo_pgsql';
-        $host     = $this->ask('  Database host', '127.0.0.1');
-        $port     = $this->ask('  Database port', $defaultPort);
-        $database = $this->ask('  Database name', 'spinx');
-        $username = $this->ask('  Database username', 'root');
-        $password = $this->ask('  Database password', '');
+        $host     = $this->ask('Database host', '127.0.0.1');
+        $port     = $this->ask('Database port', $defaultPort);
+        $database = $this->ask('Database name', 'spinx');
+        $username = $this->ask('Database username', 'root');
+        $password = $this->ask('Database password', '');
 
         return compact('driver', 'host', 'port', 'database', 'username', 'password');
     }
@@ -336,7 +286,6 @@ final class Installer
 
     private function downloadRoadRunner(): bool
     {
-        // Check if rr binary already exists in project root
         $rrBinary = $this->projectRoot . (PHP_OS_FAMILY === 'Windows' ? '/rr.exe' : '/rr');
         if (is_file($rrBinary)) {
             $this->writeln($this->dim('  (RoadRunner server binary already present in project root)'));
@@ -387,7 +336,6 @@ final class Installer
         string $appUrl,
         string $frontend,
         string $driver,
-        bool $npmInstalled,
         bool $migrated,
     ): void {
         $this->newLine();
@@ -401,14 +349,10 @@ final class Installer
         $this->writeln($this->dim('  ─────────────────────────────────────────────'));
         $this->newLine();
         $this->writeln($this->bold('  Next steps:'));
-
-        if (!$npmInstalled) {
-            $this->writeln($this->dim('    cd frontend && npm install && cd ..'));
-        }
+        $this->writeln($this->dim('    cd frontend && npm install'));
         if (!$migrated) {
             $this->writeln($this->dim('    php spinx migrate'));
         }
-
         $this->writeln($this->pink('    php spinx serve'));
         $this->newLine();
         $this->writeln($this->dim('  Docs: https://spinxphp.pages.dev/docs'));
@@ -418,17 +362,25 @@ final class Installer
 
     private function write(string $text): void
     {
+        if ($this->io !== null && method_exists($this->io, 'write')) {
+            $this->io->write($text, false);
+            return;
+        }
         fwrite(STDOUT, $text);
     }
 
     private function writeln(string $text): void
     {
+        if ($this->io !== null && method_exists($this->io, 'write')) {
+            $this->io->write($text, true);
+            return;
+        }
         fwrite(STDOUT, $text . PHP_EOL);
     }
 
     private function newLine(): void
     {
-        fwrite(STDOUT, PHP_EOL);
+        $this->writeln('');
     }
 
     private function bold(string $text): string

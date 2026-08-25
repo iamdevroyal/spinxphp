@@ -70,7 +70,7 @@
     },
     "scripts": {
         "post-create-project-cmd": [
-            "@php -r \"require 'vendor/autoload.php'; Spinx\\Installer\\Installer::run();\""
+            "Spinx\\Installer\\Installer::postCreateProject"
         ]
     },
     "bin": [
