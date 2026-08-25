@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+use Spinx\Database\Migration;
+use Spinx\Database\Schema\Blueprint;
+use Spinx\Database\Schema\SchemaBuilder;
+
+return new class extends Migration {
+    public function up(SchemaBuilder $schema): void
+    {
+        // $schema->create('table_name', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->timestamps();
+        // });
+    }
+
+    public function down(SchemaBuilder $schema): void
+    {
+        // $schema->dropIfExists('table_name');
+    }
+};

@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Infrastructure\Repositories;
+
+use App\Modules\{{MODULE}}\Domain\Entities\{{BASE}};
+use App\Modules\{{MODULE}}\Domain\Repositories\{{INTERFACE}};
+
+/**
+ * Concrete implementation — this is the only layer allowed to know about
+ * the ORM or database (build spec §5.2). Translate between your
+ * Infrastructure/Persistence/Models ORM Model and the plain Domain
+ * entity here; don't leak Spinx\Database\Model instances back out
+ * through this interface's return types.
+ */
+final class {{CLASS}} implements {{INTERFACE}}
+{
+    public function find(int|string $id): ?{{BASE}}
+    {
+        // TODO: fetch via your ORM Model (Infrastructure/Persistence/Models),
+        // then map the row into a {{BASE}} Domain entity and return it.
+        throw new \RuntimeException('Not yet implemented.');
+    }
+
+    public function save({{BASE}} $entity): void
+    {
+        // TODO: map $entity's properties onto your ORM Model and save().
+        throw new \RuntimeException('Not yet implemented.');
+    }
+
+    public function delete(int|string $id): void
+    {
+        // TODO: find the ORM Model by id and delete().
+        throw new \RuntimeException('Not yet implemented.');
+    }
+}

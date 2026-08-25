@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ $title }} — Raw HTML reference</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 480px; margin: 3rem auto; padding: 0 1rem; }
+        li { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; }
+        li.done span { text-decoration: line-through; color: #888; }
+        form { display: flex; gap: 0.5rem; margin-top: 1.5rem; }
+        input[type=text] { flex: 1; padding: 0.5rem; }
+        button { padding: 0.5rem 1rem; }
+    </style>
+</head>
+<body>
+    <h1>{{ $title }}</h1>
+    <p><small>This page is rendered entirely server-side — no Vue, no React,
+    no client-side JavaScript at all. Every directive here (<code>@if</code>,
+    <code>@foreach</code>, <code>&#123;&#123; &#125;&#125;</code>) compiles
+    straight to plain HTML. Compare with <code>/</code> (Vue) or the React
+    example in <code>examples/react-frontend</code> — same backend, same
+    DirectiveCompiler, deliberately zero <code>@island</code> calls here.
+    Every form below also carries <code>@csrf</code> — this module doubles
+    as the CsrfMiddleware reference example, see module.php.</small></p>
+
+    @if(count($todos) === 0)
+        <p>No todos yet — add one below.</p>
+    @else
+        <ul>
+        @foreach($todos as $todo)
+            <li class="{{ $todo->done ? 'done' : '' }}">
+                <form method="POST" action="/todos/{{ $todo->id }}/toggle" style="display:inline">
+                    @csrf
+                    <input type="checkbox" onchange="this.form.submit()" {{ $todo->done ? 'checked' : '' }}>
+                </form>
+                <span>{{ $todo->title }}</span>
+            </li>
+        @endforeach
+        </ul>
+    @endif
+
+    <form method="POST" action="/todos">
+        @csrf
+        <input type="text" name="title" placeholder="What needs doing?" required>
+        <button type="submit">Add</button>
+    </form>
+</body>
+</html>

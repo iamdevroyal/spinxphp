@@ -1,0 +1,12 @@
+/vendor/
+/node_modules/
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+/storage/database.sqlite
+.env
+.rr.yaml.local
+*.log
+.DS_Store
+Thumbs.db

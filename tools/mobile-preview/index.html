@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spinx — Mobile Device Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #090d16;
+            --bg-card: #0f172a;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.3);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(14, 165, 233, 0.05) 0%, transparent 40%);
+        }
+
+        header {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 50;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-badge {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #6366f1, #0ea5e9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            color: #fff;
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+
+        .brand-title {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .brand-subtitle {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 3px;
+        }
+
+        .select-input, .text-input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 6px 12px;
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .select-input option {
+            background: #0f172a;
+            color: #fff;
+        }
+
+        .btn-icon {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+
+        .btn-icon:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-icon.active {
+            color: #fff;
+            background: var(--primary);
+        }
+
+        .url-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 4px 12px;
+            width: 320px;
+        }
+
+        .url-bar input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            width: 100%;
+            outline: none;
+        }
+
+        .workspace {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: auto;
+            padding: 40px;
+        }
+
+        /* Device Mockup Shell */
+        .device-container {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            background: #000;
+            border-radius: 48px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .device-screen {
+            border-radius: 38px;
+            overflow: hidden;
+            background: #fff;
+            position: relative;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+
+        .device-notch {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 110px;
+            height: 28px;
+            background: #000;
+            border-radius: 20px;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        .res-label {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 12px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <div class="logo-badge">S</div>
+            <div>
+                <div class="brand-title">Spinx Mobile Preview</div>
+                <div class="brand-subtitle">Responsive Device Container</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="url-bar">
+                <span style="color: #10b981; font-size: 8px;">●</span>
+                <input type="text" id="targetUrl" placeholder="http://localhost:8080">
+            </div>
+
+            <div class="control-group">
+                <select id="deviceSelect" class="select-input">
+                    <option value="393x852" data-name="iPhone 15 Pro">iPhone 15 Pro (393 × 852)</option>
+                    <option value="375x667" data-name="iPhone SE">iPhone SE (375 × 667)</option>
+                    <option value="412x915" data-name="Google Pixel 7">Google Pixel 7 (412 × 915)</option>
+                    <option value="360x780" data-name="Samsung Galaxy S23">Samsung Galaxy S23 (360 × 780)</option>
+                    <option value="820x1180" data-name="iPad Air">iPad Air (820 × 1180)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button id="rotateBtn" class="btn-icon" title="Rotate orientation">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="control-group">
+                <button id="reloadBtn" class="btn-icon" title="Reload iframe">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <path d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <div class="device-container" id="deviceContainer">
+            <div class="device-notch" id="deviceNotch"></div>
+            <div class="device-screen">
+                <iframe id="previewFrame" src="about:blank"></iframe>
+            </div>
+        </div>
+        <div class="res-label" id="resLabel">393 × 852 px</div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialUrl = urlParams.get('url') || 'http://localhost:8080';
+
+        const targetUrlInput = document.getElementById('targetUrl');
+        const previewFrame = document.getElementById('previewFrame');
+        const deviceSelect = document.getElementById('deviceSelect');
+        const rotateBtn = document.getElementById('rotateBtn');
+        const reloadBtn = document.getElementById('reloadBtn');
+        const deviceContainer = document.getElementById('deviceContainer');
+        const deviceNotch = document.getElementById('deviceNotch');
+        const resLabel = document.getElementById('resLabel');
+
+        let isLandscape = false;
+
+        targetUrlInput.value = initialUrl;
+        previewFrame.src = initialUrl;
+
+        function updateDeviceDimensions() {
+            const [wStr, hStr] = deviceSelect.value.split('x');
+            let w = parseInt(wStr, 10);
+            let h = parseInt(hStr, 10);
+
+            if (isLandscape) {
+                [w, h] = [h, w];
+                deviceNotch.style.display = 'none';
+            } else {
+                deviceNotch.style.display = w > 600 ? 'none' : 'block';
+            }
+
+            deviceContainer.style.width = `${w + 24}px`;
+            deviceContainer.style.height = `${h + 24}px`;
+            resLabel.textContent = `${w} × ${h} px (${isLandscape ? 'Landscape' : 'Portrait'})`;
+        }
+
+        deviceSelect.addEventListener('change', updateDeviceDimensions);
+
+        rotateBtn.addEventListener('click', () => {
+            isLandscape = !isLandscape;
+            rotateBtn.classList.toggle('active', isLandscape);
+            updateDeviceDimensions();
+        });
+
+        reloadBtn.addEventListener('click', () => {
+            previewFrame.src = targetUrlInput.value;
+        });
+
+        targetUrlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                previewFrame.src = targetUrlInput.value;
+            }
+        });
+
+        updateDeviceDimensions();
+    </script>
+</body>
+</html>

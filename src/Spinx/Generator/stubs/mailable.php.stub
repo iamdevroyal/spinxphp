@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Application\Mail;
+
+use Spinx\Mail\Mailable;
+
+final class {{MAILABLE_CLASS}} extends Mailable
+{
+    public function __construct(
+        private readonly string $recipientEmail,
+        // Add whatever data the view needs, e.g.:
+        // private readonly string $recipientName,
+    ) {
+    }
+
+    public function build(): static
+    {
+        return $this
+            ->to($this->recipientEmail)
+            ->subject('Subject line here')
+            ->view('{{MODULE}}::mail.{{VIEW_NAME}}', [
+                // Passed to the view as variables:
+                // 'name' => $this->recipientName,
+            ]);
+    }
+}

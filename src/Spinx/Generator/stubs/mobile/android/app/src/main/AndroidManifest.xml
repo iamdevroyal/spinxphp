@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Needed to reach the Spinx backend over the network (build spec
+         §10.1, Path A: the shell talks to the backend over HTTP, it
+         doesn't run PHP on-device). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.SpinxShell"
+        android:usesCleartextTraffic="true">
+        <!-- usesCleartextTraffic: true is for local development against
+             http://localhost — set to false and configure a network
+             security config before shipping a production build that
+             only talks to https backends. -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

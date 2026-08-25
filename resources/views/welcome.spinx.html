@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ $title }}</title>
+    @vite
+</head>
+<body>
+    <h1>{{ $title }}</h1>
+
+    @if($showIntro)
+        <p>Welcome to your new Spinx app. This page proves the directive
+        compiler, view caching, and Vue island hydration all work end to end.</p>
+    @else
+        <p>Intro hidden.</p>
+    @endif
+
+    <ul>
+    @foreach($features as $feature)
+        <li>{{ $feature }}</li>
+    @endforeach
+    </ul>
+
+    {{-- The div below is emitted by @island. frontend/src/main.js scans for
+         [data-spinx-island] on DOMContentLoaded and mounts the matching
+         Vue component from frontend/src/islands/ onto it, passing the
+         data-spinx-props attribute through as props. --}}
+    @island('ExampleIsland', ['message' => $islandMessage])
+</body>
+</html>

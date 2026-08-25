@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Infrastructure\Http\Middleware;
+
+use Spinx\Http\Middleware\MiddlewareInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+final class {{CLASS}} implements MiddlewareInterface
+{
+    public function process(Request $request, \Closure $next): Response
+    {
+        // Work before the controller runs (auth checks, rate limiting, etc.):
+        // if (/* some condition */) {
+        //     return new Response('Forbidden', 403);
+        // }
+
+        $response = $next($request);
+
+        // Work after the controller runs (add headers, log, etc.):
+        // $response->headers->set('X-Example', 'value');
+
+        return $response;
+    }
+}

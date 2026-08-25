@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+use Spinx\Schedule\Scheduler;
+
+/**
+ * Copy to schedule.php (project root) to enable the task scheduler.
+ * Then add ONE real OS cron entry — Spinx figures out what's actually
+ * due each minute, same pattern Laravel's own scheduler uses:
+ *
+ *   * * * * * cd /path/to/your/app && php spinx schedule:run >> /dev/null 2>&1
+ *
+ * $container is the real, booted DI container — resolve any service
+ * registered in config/container.php or any module.php from it the same
+ * way a controller would receive it via constructor injection.
+ *
+ * IMPORTANT: schedule.php should NOT be gitignored — it contains
+ * application logic (which tasks run when), not secrets. Same treatment
+ * as Laravel's routes/console.php.
+ */
+return function (Scheduler $scheduler, $container): void {
+    // Daily cleanup job dispatched to the queue at 3 AM:
+    // $scheduler->call(function () use ($container) {
+    //     $container->get(\Spinx\Queue\QueueManager::class)->dispatch(new SomeCleanupJob());
+    // }, 'dispatch daily cleanup job')->daily('03:00');
+
+    // Hourly prune of abandoned records:
+    // $scheduler->call(function () {
+    //     \App\Modules\Orders\Infrastructure\Persistence\Models\Order::query()
+    //         ->where('status', 'abandoned')
+    //         ->whereNotNull('expires_at')
+    //         ->delete();
+    // }, 'prune abandoned orders')->hourly();
+
+    // Every 15 minutes:
+    // $scheduler->call(fn() => doSomething(), 'do something')->everyMinutes(15);
+
+    // Every Monday at 08:30:
+    // $scheduler->call(fn() => sendWeeklyReport(), 'send weekly report')->weekly(1, '08:30');
+};

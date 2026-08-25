@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{VIEW_NAME}}</title>
+</head>
+<body style="font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto;">
+    <p>Write the email content here — this is a normal .spinx.html
+    template, so @if/@foreach/&#123;&#123; &#125;&#125; all work exactly
+    like any other view. @island is technically available too, but most
+    email clients strip <script> tags and won't hydrate JS — stick to
+    plain HTML/inline CSS for anything that has to render reliably
+    across clients.</p>
+</body>
+</html>

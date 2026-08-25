@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Application\Jobs;
+
+use App\Modules\{{MODULE}}\Application\Mail\{{MAILABLE_CLASS}};
+use Spinx\Mail\Mailer;
+use Spinx\Queue\Job;
+use Spinx\Queue\JobContext;
+
+/**
+ * Keep constructor properties to plain serializable data (strings,
+ * arrays, IDs) — this object is serialize()'d when dispatched to the
+ * queue and unserialize()'d fresh by the worker later, so it can't carry
+ * a live service like Mailer across that boundary. handle() resolves
+ * what it needs fresh instead, via JobContext — see that class's
+ * docblock for why.
+ */
+final class {{JOB_CLASS}} implements Job
+{
+    public function __construct(
+        private readonly string $recipientEmail,
+    ) {
+    }
+
+    public function handle(): void
+    {
+        /** @var Mailer $mailer */
+        $mailer = JobContext::resolve(Mailer::class);
+        $mailer->send(new {{MAILABLE_CLASS}}($this->recipientEmail));
+    }
+}

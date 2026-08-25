@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Domain\Entities;
+
+/**
+ * Domain entity — deliberately has zero knowledge of persistence, HTTP, or
+ * any other Infrastructure concern (build spec §5.2). This is NOT the ORM
+ * Model (see Infrastructure/Persistence/Models) — if this class starts
+ * needing a database column name or an HTTP status code, that logic
+ * belongs in Infrastructure instead, translated by a repository.
+ */
+final class {{CLASS}}
+{
+    public function __construct(
+        // Add domain properties here, e.g.:
+        // public readonly string $id,
+        // public readonly string $name,
+    ) {
+    }
+}

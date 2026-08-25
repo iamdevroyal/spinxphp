@@ -1,0 +1,17 @@
+version: "3"
+
+server:
+  command: "php public/worker.php"
+
+http:
+  address: 0.0.0.0:8080
+  pool:
+    num_workers: 4       # tune per CPU core count on target machine
+    max_jobs: 0          # 0 = unlimited requests per worker before recycle
+    supervisor:
+      watch_tick: 1s
+      max_worker_memory: 128 # MB, recycles a worker that exceeds this
+
+logs:
+  mode: development
+  level: info

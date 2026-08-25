@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\Routing\RouteCollection;
+
+/**
+ * {{MODULE}} module manifest.
+ *
+ * This is the ONLY place this module's routes and DI bindings are
+ * registered — the ModuleLoader (src/Spinx/Routing/ModuleLoader.php) is the
+ * only code path that reads this file. See build spec §5.
+ *
+ * Add controllers under Infrastructure/Http/Controllers, register them in
+ * the "services" closure below, then bind their routes in "routes".
+ *
+ * Every service registered here is REQUEST-SCOPED by default — reset
+ * fresh at the start of every request so nothing leaks across requests on
+ * a persistent worker/coroutine (build spec §4). If a service is
+ * genuinely safe to persist across requests (stateless, no mutable
+ * per-request data), opt it out explicitly:
+ *
+ *   use Spinx\Container\Attribute\Singleton;
+ *
+ *   #[Singleton]
+ *   final class PriceFormatter { ... }
+ */
+return [
+    'routes' => static function (RouteCollection $routes, string $moduleDir): void {
+        // Example:
+        // $routes->add('{{MODULE_SNAKE}}.index', new Route(
+        //     '/{{MODULE_SNAKE}}',
+        //     defaults: ['_controller' => \App\Modules\{{MODULE}}\Infrastructure\Http\Controllers\ExampleController::class],
+        //     methods: ['GET']
+        // ));
+    },
+
+    'services' => static function (ContainerBuilder $container, string $moduleDir): void {
+        // Example:
+        // $container->register(\App\Modules\{{MODULE}}\Infrastructure\Http\Controllers\ExampleController::class)
+        //     ->setAutowired(true)
+        //     ->setPublic(true);
+    },
+];

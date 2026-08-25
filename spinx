@@ -1,0 +1,1044 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// This script lives at the project root so __DIR__ IS the
+// project root directly.
+$projectRoot = __DIR__;
+
+$autoload = $projectRoot . '/vendor/autoload.php';
+if (is_file($autoload)) {
+    require $autoload;
+}
+
+$command = $argv[1] ?? null;
+
+switch ($command) {
+    case 'new':
+        newProjectCommand($projectRoot, $argv[2] ?? null, array_slice($argv, 3));
+        break;
+
+    case 'serve':
+        serveCommand($projectRoot);
+        break;
+
+    case 'make:module':
+        makeModuleCommand($projectRoot, $argv[2] ?? null, array_slice($argv, 3));
+        break;
+
+    case 'migrate':
+        migrateCommand($projectRoot, $argv[2] ?? null);
+        break;
+
+    case 'module:migrate':
+        if (($argv[2] ?? null) === null) {
+            fwrite(STDERR, "[Spinx] Usage: spinx module:migrate <Name>\n");
+            exit(1);
+        }
+        migrateCommand($projectRoot, $argv[2]);
+        break;
+
+    case 'queue:work':
+        queueWorkCommand($projectRoot);
+        break;
+
+    case 'schedule:run':
+        scheduleRunCommand($projectRoot);
+        break;
+
+    case 'schema:compile':
+        schemaCompileCommand($projectRoot);
+        break;
+
+    case 'openapi:generate':
+        openApiGenerateCommand($projectRoot, $argv);
+        break;
+
+    case 'make:mail':
+        makeMailCommand($projectRoot, $argv[2] ?? null, $argv[3] ?? null);
+        break;
+
+    case 'make:controller':
+        makeGeneratedFile($projectRoot, 'controller', \Spinx\Generator\ControllerGenerator::class, $argv[2] ?? null, $argv[3] ?? null);
+        break;
+
+    case 'make:entity':
+        makeGeneratedFile($projectRoot, 'entity', \Spinx\Generator\EntityGenerator::class, $argv[2] ?? null, $argv[3] ?? null);
+        break;
+
+    case 'make:service':
+        makeGeneratedFile($projectRoot, 'service', \Spinx\Generator\ServiceGenerator::class, $argv[2] ?? null, $argv[3] ?? null);
+        break;
+
+    case 'make:repository':
+        makeGeneratedFile($projectRoot, 'repository', \Spinx\Generator\RepositoryGenerator::class, $argv[2] ?? null, $argv[3] ?? null);
+        break;
+
+    case 'make:model':
+        makeGeneratedFile($projectRoot, 'model', \Spinx\Generator\ModelGenerator::class, $argv[2] ?? null, $argv[3] ?? null);
+        break;
+
+    case 'make:middleware':
+        makeGeneratedFile($projectRoot, 'middleware', \Spinx\Generator\MiddlewareGenerator::class, $argv[2] ?? null, $argv[3] ?? null);
+        break;
+
+    case 'make:migration':
+        makeGeneratedFile($projectRoot, 'migration', \Spinx\Generator\MigrationGenerator::class, $argv[2] ?? null, $argv[3] ?? null, isMigration: true);
+        break;
+
+    case 'driver:swap':
+        driverSwapCommand($projectRoot, $argv[2] ?? null);
+        break;
+
+    case 'preview':
+        previewCommand($projectRoot, $argv[2] ?? null);
+        break;
+
+    case 'build:mobile':
+        buildMobileCommand($projectRoot, $argv[2] ?? null);
+        break;
+
+    case 'build':
+        buildCommand($projectRoot);
+        break;
+
+    case null:
+    case 'help':
+    case '--help':
+        printHelp();
+        break;
+
+    default:
+        fwrite(STDERR, "[Spinx] Unknown command: {$command}\n");
+        printHelp();
+        exit(1);
+}
+
+function serveCommand(string $projectRoot): void
+{
+    $config = json_decode((string) file_get_contents($projectRoot . '/spinx.json'), true) ?? [];
+    $driver = $config['driver'] ?? 'roadrunner';
+
+    if ($driver === 'swoole') {
+        serveSwoole($projectRoot);
+        return;
+    }
+
+    serveRoadRunner($projectRoot);
+}
+
+function serveRoadRunner(string $projectRoot): void
+{
+    $rrBinary = detectRoadRunnerBinary($projectRoot);
+
+    if ($rrBinary === null) {
+        fwrite(STDERR, "[Spinx] RoadRunner binary not found in project root.\n");
+        fwrite(STDERR, "        Run `composer install` (auto-download), or place `rr`/`rr.exe`\n");
+        fwrite(STDERR, "        from https://github.com/roadrunner-server/roadrunner/releases in the project root.\n");
+        exit(1);
+    }
+
+    $vite = startViteDevServer($projectRoot);
+
+    // Best-effort cleanup: whether the process exits normally, via an
+    // uncaught error, or the user hits Ctrl+C, the Vite child process and
+    // the storage/frontend/hot marker must not be left behind — a stale
+    // hot file would silently point @vite at a dev server that's no
+    // longer running.
+    register_shutdown_function(static function () use ($vite) {
+        stopViteDevServer($vite);
+    });
+
+    if (function_exists('pcntl_async_signals')) {
+        pcntl_async_signals(true);
+        $shutdown = static function () use ($vite) {
+            stopViteDevServer($vite);
+            exit(0);
+        };
+        pcntl_signal(SIGINT, $shutdown);
+        pcntl_signal(SIGTERM, $shutdown);
+    }
+
+    fwrite(STDOUT, "[Spinx] Starting RoadRunner server using {$rrBinary} ...\n");
+
+    $process = proc_open(
+        [$rrBinary, 'serve', '-c', $projectRoot . '/.rr.yaml'],
+        [STDIN, STDOUT, STDERR],
+        $pipes,
+        $projectRoot
+    );
+
+    if ($process === false) {
+        fwrite(STDERR, "[Spinx] Failed to start RoadRunner process.\n");
+        stopViteDevServer($vite);
+        exit(1);
+    }
+
+    exit(proc_close($process));
+}
+
+function serveSwoole(string $projectRoot): void
+{
+    if (!extension_loaded('swoole') && !extension_loaded('openswoole')) {
+        fwrite(STDERR, "[Spinx] Swoole/OpenSwoole extension not found.\n");
+        fwrite(STDERR, "        Install it, or set \"driver\": \"roadrunner\" in spinx.json (`spinx driver:swap roadrunner`).\n");
+        fwrite(STDERR, "        See Dockerfile in the project root for a pre-built Swoole environment.\n");
+        exit(1);
+    }
+
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    $vite = startViteDevServer($projectRoot);
+
+    register_shutdown_function(static function () use ($vite) {
+        stopViteDevServer($vite);
+    });
+
+    if (function_exists('pcntl_async_signals')) {
+        pcntl_async_signals(true);
+        $shutdown = static function () use ($vite) {
+            stopViteDevServer($vite);
+            exit(0);
+        };
+        pcntl_signal(SIGINT, $shutdown);
+        pcntl_signal(SIGTERM, $shutdown);
+    }
+
+    fwrite(STDOUT, "[Spinx] Starting Swoole server (single process, no external supervisor binary)...\n");
+
+    // Unlike RoadRunner, there's no separate binary to proc_open — the
+    // PHP process itself IS the server, so this script runs the worker
+    // entrypoint directly and blocks inside it until shutdown.
+    require $projectRoot . '/public/swoole-worker.php';
+}
+
+/**
+ * @return array{process: resource, hotFile: string}|null Null if no
+ *         frontend scaffold or dependencies are found — backend-only
+ *         serving still works, just without HMR.
+ */
+function startViteDevServer(string $projectRoot): ?array
+{
+    $frontendDir = $projectRoot . '/frontend';
+
+    if (!is_file($frontendDir . '/package.json')) {
+        fwrite(STDERR, "[Spinx] No frontend/package.json found — skipping Vite dev server.\n");
+        return null;
+    }
+
+    if (!is_dir($frontendDir . '/node_modules')) {
+        fwrite(STDERR, "[Spinx] frontend/node_modules missing — run `npm install` inside frontend/ first.\n");
+        fwrite(STDERR, "        Skipping Vite dev server for this run; backend will still serve.\n");
+        return null;
+    }
+
+    $devServerUrl = 'http://localhost:5173';
+    $hotDir = $projectRoot . '/storage/frontend';
+
+    if (!is_dir($hotDir) && !mkdir($hotDir, 0755, true) && !is_dir($hotDir)) {
+        fwrite(STDERR, "[Spinx] Failed to create storage/frontend — skipping Vite dev server.\n");
+        return null;
+    }
+
+    $hotFile = $hotDir . '/hot';
+    file_put_contents($hotFile, $devServerUrl);
+
+    $process = proc_open(
+        ['npm', 'run', 'dev'],
+        [STDIN, STDOUT, STDERR],
+        $pipes,
+        $frontendDir
+    );
+
+    if ($process === false) {
+        fwrite(STDERR, "[Spinx] Failed to start Vite dev server (is npm installed?).\n");
+        @unlink($hotFile);
+        return null;
+    }
+
+    fwrite(STDOUT, "[Spinx] Vite dev server starting at {$devServerUrl} (HMR enabled)\n");
+
+    return ['process' => $process, 'hotFile' => $hotFile];
+}
+
+/** @param array{process: resource, hotFile: string}|null $vite */
+function stopViteDevServer(?array $vite): void
+{
+    if ($vite === null) {
+        return;
+    }
+
+    @unlink($vite['hotFile']);
+
+    if (is_resource($vite['process'])) {
+        proc_terminate($vite['process']);
+        proc_close($vite['process']);
+    }
+}
+
+/**
+ * @param string[] $flags Raw CLI args after the module name — supports
+ *        --all (also generate entity/model/repository/service/
+ *        controller/migration using the module's singularized name) and
+ *        --except=entity,service (skip specific ones when using --all).
+ */
+function makeModuleCommand(string $projectRoot, ?string $moduleName, array $flags = []): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    if ($moduleName === null || $moduleName === '') {
+        fwrite(STDERR, "[Spinx] Usage: spinx make:module <Name> [--all] [--except=entity,service,...]\n");
+        fwrite(STDERR, "        Example: spinx make:module Orders --all\n");
+        exit(1);
+    }
+
+    try {
+        $generator = new \Spinx\Generator\ModuleGenerator($projectRoot);
+        $created = $generator->generate($moduleName);
+    } catch (\InvalidArgumentException|\RuntimeException $e) {
+        fwrite(STDERR, "[Spinx] {$e->getMessage()}\n");
+        exit(1);
+    }
+
+    fwrite(STDOUT, "[Spinx] Module \"{$moduleName}\" created:\n");
+    foreach ($created as $path) {
+        fwrite(STDOUT, "  " . str_replace($projectRoot . '/', '', $path) . "\n");
+    }
+
+    if (!in_array('--all', $flags, true)) {
+        fwrite(STDOUT, "\n[Spinx] Registered in spinx.json. Add routes/services in:\n");
+        fwrite(STDOUT, "  app/Modules/{$moduleName}/module.php\n");
+
+        return;
+    }
+
+    runMakeAllForModule($projectRoot, $moduleName, $flags);
+}
+
+/**
+ * Backs `make:module <Name> --all`. Runs every layer generator against
+ * the module's singularized name (naive: strips a trailing "s" — this
+ * mishandles irregular plurals like "Categories", a real, acknowledged
+ * limitation; run the individual make:* commands with an explicit name
+ * for those cases) so a whole module skeleton — entity, ORM model,
+ * repository pair, service, controller, and a starter migration — comes
+ * up in one command instead of six.
+ *
+ * @param string[] $flags
+ */
+function runMakeAllForModule(string $projectRoot, string $moduleName, array $flags): void
+{
+    $except = [];
+    foreach ($flags as $flag) {
+        if (str_starts_with($flag, '--except=')) {
+            $except = array_map('trim', explode(',', substr($flag, strlen('--except='))));
+        }
+    }
+
+    $baseName = preg_match('/(.+)s$/', $moduleName, $m) ? $m[1] : $moduleName;
+    $migrationDescription = 'create_' . strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $moduleName)) . '_table';
+
+    $steps = [
+        'entity' => fn () => (new \Spinx\Generator\EntityGenerator($projectRoot))->generate($moduleName, $baseName),
+        'model' => fn () => (new \Spinx\Generator\ModelGenerator($projectRoot))->generate($moduleName, $baseName),
+        'repository' => fn () => (new \Spinx\Generator\RepositoryGenerator($projectRoot))->generate($moduleName, $baseName),
+        'service' => fn () => (new \Spinx\Generator\ServiceGenerator($projectRoot))->generate($moduleName, $baseName),
+        'controller' => fn () => (new \Spinx\Generator\ControllerGenerator($projectRoot))->generate($moduleName, $baseName),
+        'migration' => fn () => (new \Spinx\Generator\MigrationGenerator($projectRoot))->generate($moduleName, $migrationDescription),
+    ];
+
+    fwrite(STDOUT, "\n[Spinx] --all: provisioning entity, model, repository, service, controller, migration for \"{$baseName}\"...\n");
+
+    foreach ($steps as $kind => $run) {
+        if (in_array($kind, $except, true)) {
+            fwrite(STDOUT, "  skipped {$kind} (--except)\n");
+            continue;
+        }
+
+        try {
+            $result = $run();
+            foreach ($result['files'] as $path) {
+                fwrite(STDOUT, "  created " . str_replace($projectRoot . '/', '', $path) . "\n");
+            }
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            fwrite(STDERR, "  {$kind} failed: {$e->getMessage()}\n");
+        }
+    }
+
+    fwrite(STDOUT, "\n[Spinx] Some of the above print their own module.php snippet above this summary — scroll up, or rerun individually to see it again.\n");
+    fwrite(STDOUT, "[Spinx] Registered in spinx.json. Wire routes/services in app/Modules/{$moduleName}/module.php\n");
+}
+
+/**
+ * Shared handler for every make:* generator except make:module (which has
+ * a different single-argument shape). $name is the class name for most
+ * generators, or the snake_case description for make:migration.
+ */
+function makeGeneratedFile(
+    string $projectRoot,
+    string $kind,
+    string $generatorClass,
+    ?string $moduleName,
+    ?string $name,
+    bool $isMigration = false,
+): void {
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    if ($moduleName === null || $name === null) {
+        $nameHint = $isMigration ? '<snake_case_description>' : '<Name>';
+        fwrite(STDERR, "[Spinx] Usage: spinx make:{$kind} <Module> {$nameHint}\n");
+        if ($isMigration) {
+            fwrite(STDERR, "        Example: spinx make:migration Orders create_orders_table\n");
+        } else {
+            fwrite(STDERR, "        Example: spinx make:{$kind} Orders Order\n");
+        }
+        exit(1);
+    }
+
+    try {
+        $generator = new $generatorClass($projectRoot);
+        $result = $generator->generate($moduleName, $name);
+    } catch (\InvalidArgumentException|\RuntimeException $e) {
+        fwrite(STDERR, "[Spinx] {$e->getMessage()}\n");
+        exit(1);
+    }
+
+    fwrite(STDOUT, "[Spinx] Created:\n");
+    foreach ($result['files'] as $path) {
+        fwrite(STDOUT, "  " . str_replace($projectRoot . '/', '', $path) . "\n");
+    }
+
+    if (($result['snippet'] ?? '') !== '') {
+        fwrite(STDOUT, "\n" . $result['snippet'] . "\n");
+    }
+}
+
+/**
+ * @param string[] $flags
+ */
+function newProjectCommand(string $projectRoot, ?string $targetName, array $flags = []): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first (in THIS Spinx installation, not the new project).\n");
+        exit(1);
+    }
+
+    if ($targetName === null || $targetName === '') {
+        fwrite(STDERR, "[Spinx] Usage: spinx new <project> [--frontend=vue|react]\n");
+        exit(1);
+    }
+
+    $frontend = 'vue';
+    foreach ($flags as $flag) {
+        if (str_starts_with($flag, '--frontend=')) {
+            $frontend = substr($flag, strlen('--frontend='));
+        }
+    }
+
+    $targetDir = str_starts_with($targetName, '/') ? $targetName : getcwd() . '/' . $targetName;
+
+    try {
+        $generator = new \Spinx\Generator\ProjectGenerator($projectRoot);
+        $result = $generator->generate($targetDir, $frontend);
+    } catch (\InvalidArgumentException|\RuntimeException $e) {
+        fwrite(STDERR, "[Spinx] {$e->getMessage()}\n");
+        exit(1);
+    }
+
+    fwrite(STDOUT, "[Spinx] New project created at {$result['targetDir']} (frontend: {$result['frontend']}).\n\n");
+    fwrite(STDOUT, "Next steps:\n");
+    fwrite(STDOUT, "  cd {$targetName}\n");
+    fwrite(STDOUT, "  composer install\n");
+    fwrite(STDOUT, "  cd frontend && npm install && cd ..\n");
+    fwrite(STDOUT, "  vendor/bin/rr get\n");
+    fwrite(STDOUT, "  php spinx migrate\n");
+    fwrite(STDOUT, "  php spinx serve\n");
+}
+
+function migrateCommand(string $projectRoot, ?string $moduleName): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    $container = (new \Spinx\Container\ContainerFactory($projectRoot))->build();
+    $migrator = $container->get(\Spinx\Database\Migrator::class);
+
+    if ($moduleName !== null) {
+        $results = [$moduleName => $migrator->migrateModule($moduleName)];
+    } else {
+        $config = json_decode((string) file_get_contents($projectRoot . '/spinx.json'), true) ?? [];
+        $results = $migrator->migrateAll(array_keys($config['modules'] ?? []));
+    }
+
+    $ranAny = false;
+    foreach ($results as $module => $ranMigrations) {
+        foreach ($ranMigrations as $migration) {
+            fwrite(STDOUT, "[Spinx] Migrated: {$module} :: {$migration}\n");
+            $ranAny = true;
+        }
+    }
+
+    if (!$ranAny) {
+        fwrite(STDOUT, "[Spinx] Nothing to migrate.\n");
+    }
+}
+
+/**
+ * Polls spinx_jobs for due work (available_at <= now), runs each job's
+ * handle(), deletes it on success. On failure: increments attempts and
+ * leaves it for retry if under the max, otherwise moves it to
+ * spinx_failed_jobs with the exception message and removes it from the
+ * active queue. Runs until Ctrl+C.
+ */
+function queueWorkCommand(string $projectRoot): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    $maxAttempts = 3;
+    $pollIntervalSeconds = 1;
+
+    $kernel = new \Spinx\Kernel\Kernel($projectRoot);
+    $kernel->boot();
+    \Spinx\Queue\JobContext::setContainer($kernel->getContainer());
+
+    fwrite(STDOUT, "[Spinx] Queue worker started. Polling every {$pollIntervalSeconds}s. Ctrl+C to stop.\n");
+
+    $running = true;
+    if (function_exists('pcntl_async_signals')) {
+        pcntl_async_signals(true);
+        pcntl_signal(SIGINT, function () use (&$running) { $running = false; });
+        pcntl_signal(SIGTERM, function () use (&$running) { $running = false; });
+    }
+
+    while ($running) {
+        $due = \Spinx\Queue\QueuedJobRecord::query()
+            ->where('available_at', '<=', (new \DateTimeImmutable())->format('Y-m-d H:i:s'))
+            ->orderBy('id')
+            ->limit(1)
+            ->get();
+
+        if ($due === []) {
+            sleep($pollIntervalSeconds);
+            continue;
+        }
+
+        $record = $due[0];
+
+        try {
+            $job = unserialize(base64_decode((string) $record->payload), ['allowed_classes' => true]);
+
+            if (!$job instanceof \Spinx\Queue\Job) {
+                throw new \RuntimeException('Deserialized payload is not a Job instance.');
+            }
+
+            $job->handle();
+            $record->delete();
+            fwrite(STDOUT, "[Spinx] Job #{$record->id} (" . $job::class . ") completed.\n");
+        } catch (\Throwable $e) {
+            $attempts = ((int) $record->attempts) + 1;
+
+            if ($attempts >= $maxAttempts) {
+                \Spinx\Queue\FailedJobRecord::create([
+                    'payload' => $record->payload,
+                    'exception' => $e::class . ': ' . $e->getMessage(),
+                    'failed_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+                ]);
+                $record->delete();
+                fwrite(STDERR, "[Spinx] Job #{$record->id} failed permanently after {$attempts} attempts: {$e->getMessage()}\n");
+            } else {
+                $record->update(['attempts' => $attempts]);
+                fwrite(STDERR, "[Spinx] Job #{$record->id} failed (attempt {$attempts}/{$maxAttempts}), will retry: {$e->getMessage()}\n");
+            }
+        }
+    }
+
+    fwrite(STDOUT, "[Spinx] Queue worker stopped.\n");
+}
+
+/** Scaffolds a Mailable, its .spinx.html view, and a Job that sends it — spinx make:mail <Module> <Name>. */
+function makeMailCommand(string $projectRoot, ?string $moduleName, ?string $name): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    if ($moduleName === null || $name === null) {
+        fwrite(STDERR, "[Spinx] Usage: spinx make:mail <Module> <Name>\n");
+        fwrite(STDERR, "        Example: spinx make:mail Orders OrderShipped\n");
+        exit(1);
+    }
+
+    try {
+        $generator = new \Spinx\Generator\MailGenerator($projectRoot);
+        $result = $generator->generate($moduleName, $name);
+    } catch (\InvalidArgumentException|\RuntimeException $e) {
+        fwrite(STDERR, "[Spinx] {$e->getMessage()}\n");
+        exit(1);
+    }
+
+    fwrite(STDOUT, "[Spinx] Created:\n");
+    foreach ($result['files'] as $path) {
+        fwrite(STDOUT, "  " . str_replace($projectRoot . '/', '', $path) . "\n");
+    }
+    fwrite(STDOUT, "\n" . $result['snippet'] . "\n");
+}
+
+function driverSwapCommand(string $projectRoot, ?string $driver): void
+{
+    if (!in_array($driver, ['roadrunner', 'swoole'], true)) {
+        fwrite(STDERR, "[Spinx] Usage: spinx driver:swap <roadrunner|swoole>\n");
+        exit(1);
+    }
+
+    $configFile = $projectRoot . '/spinx.json';
+    $config = json_decode((string) file_get_contents($configFile), true) ?? [];
+    $previous = $config['driver'] ?? 'roadrunner';
+    $config['driver'] = $driver;
+
+    file_put_contents($configFile, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+
+    fwrite(STDOUT, "[Spinx] Driver switched: {$previous} -> {$driver}\n");
+
+    if ($driver === 'swoole') {
+        fwrite(STDOUT, "[Spinx] Note: Swoole requires the swoole/openswoole PHP extension (not installable via Composer).\n");
+        fwrite(STDOUT, "       Use the project's Dockerfile, or install the extension manually, before running `spinx serve`.\n");
+        fwrite(STDOUT, "       Windows: Swoole doesn't build natively there — use WSL2 or Docker.\n");
+    }
+}
+
+/**
+ * Orchestrates real OS tooling rather than reinventing emulators (build
+ * spec §9) — Android/iOS previews open the dev server URL on a real
+ * device/simulator via adb/xcrun, and desktop opens a genuine native
+ * webview window (see tools/desktop-preview), not a browser tab.
+ */
+function previewCommand(string $projectRoot, ?string $flag): void
+{
+    $target = match ($flag) {
+        '--android' => 'android',
+        '--ios' => 'ios',
+        '--desktop' => 'desktop',
+        '--mobile' => 'mobile',
+        default => null,
+    };
+
+    if ($target === null) {
+        fwrite(STDERR, "[Spinx] Usage: spinx preview --mobile|--android|--ios|--desktop\n");
+        exit(1);
+    }
+
+    $devServerUrl = resolveDevServerUrl($projectRoot);
+
+    match ($target) {
+        'mobile' => previewMobile($projectRoot, $devServerUrl),
+        'android' => previewAndroid($devServerUrl),
+        'ios' => previewIos($devServerUrl),
+        'desktop' => previewDesktop($projectRoot, $devServerUrl),
+    };
+}
+
+function previewMobile(string $projectRoot, string $devServerUrl): void
+{
+    $previewToolPath = $projectRoot . '/tools/mobile-preview/index.html';
+    if (!is_file($previewToolPath)) {
+        fwrite(STDERR, "[Spinx] tools/mobile-preview/index.html not found.\n");
+        exit(1);
+    }
+
+    $url = 'file:///' . str_replace('\\', '/', $previewToolPath) . '?url=' . urlencode($devServerUrl);
+    fwrite(STDOUT, "[Spinx] Opening mobile device preview container for {$devServerUrl}...\n");
+
+    if (PHP_OS_FAMILY === 'Windows') {
+        shell_exec('start "" ' . escapeshellarg($url));
+    } elseif (PHP_OS_FAMILY === 'Darwin') {
+        shell_exec('open ' . escapeshellarg($url));
+    } else {
+        shell_exec('xdg-open ' . escapeshellarg($url));
+    }
+}
+
+/** Prefers the backend port (serves full HTML + API), not the raw Vite port, which serves only JS/CSS assets. */
+function resolveDevServerUrl(string $projectRoot): string
+{
+    $config = json_decode((string) file_get_contents($projectRoot . '/spinx.json'), true) ?? [];
+
+    if (($config['driver'] ?? 'roadrunner') === 'swoole') {
+        $port = $config['swoole']['port'] ?? 9501;
+
+        return "http://localhost:{$port}";
+    }
+
+    // RoadRunner's port lives in .rr.yaml, not spinx.json.
+    $port = 8080;
+    $rrConfig = @file_get_contents($projectRoot . '/.rr.yaml');
+
+    if ($rrConfig !== false && preg_match('/address:\s*[\w.]*:(\d+)/', $rrConfig, $matches)) {
+        $port = (int) $matches[1];
+    }
+
+    return "http://localhost:{$port}";
+}
+
+function previewAndroid(string $devServerUrl): void
+{
+    $adb = findExecutableInPath('adb');
+
+    if ($adb === null) {
+        fwrite(STDERR, "[Spinx] `adb` not found in PATH. Install the Android SDK platform-tools\n");
+        fwrite(STDERR, "        and ensure \$ANDROID_HOME/platform-tools is on PATH.\n");
+        exit(1);
+    }
+
+    $devices = (string) shell_exec($adb . ' devices');
+    $hasDevice = preg_match('/\n[\w.:-]+\tdevice\b/', "\n" . $devices) === 1;
+
+    if (!$hasDevice) {
+        fwrite(STDOUT, "[Spinx] No running Android device/emulator detected. Attempting to boot the first available AVD...\n");
+
+        $emulatorBin = findExecutableInPath('emulator');
+        $avdList = $emulatorBin !== null ? trim((string) shell_exec($emulatorBin . ' -list-avds')) : '';
+        $firstAvd = $avdList !== '' ? strtok($avdList, "\n") : false;
+
+        if ($emulatorBin === null || $firstAvd === false) {
+            fwrite(STDERR, "[Spinx] No AVD found and no device connected. Create an AVD in Android Studio\n");
+            fwrite(STDERR, "        or connect a physical device with USB debugging enabled, then retry.\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, "[Spinx] Booting AVD \"{$firstAvd}\" (this can take a minute)...\n");
+        $emulatorProcess = proc_open([$emulatorBin, '-avd', $firstAvd], [STDIN, STDOUT, STDERR], $pipes);
+
+        if ($emulatorProcess === false) {
+            fwrite(STDERR, "[Spinx] Failed to launch the emulator.\n");
+            exit(1);
+        }
+
+        shell_exec($adb . ' wait-for-device');
+    }
+
+    $port = (int) (parse_url($devServerUrl, PHP_URL_PORT) ?? 8080);
+    fwrite(STDOUT, "[Spinx] Forwarding device port {$port} to host port {$port}...\n");
+    shell_exec(sprintf('%s reverse tcp:%d tcp:%d', $adb, $port, $port));
+
+    fwrite(STDOUT, "[Spinx] Opening {$devServerUrl} on-device...\n");
+    shell_exec(sprintf(
+        '%s shell am start -a android.intent.action.VIEW -d %s',
+        $adb,
+        escapeshellarg($devServerUrl)
+    ));
+}
+
+function previewIos(string $devServerUrl): void
+{
+    if (PHP_OS_FAMILY !== 'Darwin') {
+        fwrite(STDERR, "[Spinx] iOS preview requires macOS + Xcode — Apple's platform constraint, not Spinx's (build spec §9).\n");
+        exit(1);
+    }
+
+    $xcrun = findExecutableInPath('xcrun');
+
+    if ($xcrun === null) {
+        fwrite(STDERR, "[Spinx] `xcrun` not found. Install Xcode and its command line tools.\n");
+        exit(1);
+    }
+
+    fwrite(STDOUT, "[Spinx] Booting the default iOS Simulator (if not already running)...\n");
+    shell_exec('open -a Simulator');
+    sleep(2); // Give Simulator.app a moment to finish launching before targeting it.
+
+    fwrite(STDOUT, "[Spinx] Opening {$devServerUrl} on the simulator...\n");
+    shell_exec(sprintf('%s simctl openurl booted %s', $xcrun, escapeshellarg($devServerUrl)));
+}
+
+function previewDesktop(string $projectRoot, string $devServerUrl): void
+{
+    $shellDir = $projectRoot . '/tools/desktop-preview';
+    $binaryName = 'spinx-desktop-preview' . (PHP_OS_FAMILY === 'Windows' ? '.exe' : '');
+    $binaryPath = $shellDir . '/' . $binaryName;
+
+    if (!is_file($binaryPath)) {
+        $goBin = findExecutableInPath('go');
+
+        if ($goBin === null) {
+            fwrite(STDERR, "[Spinx] Go toolchain not found and no pre-built desktop preview binary exists.\n");
+            fwrite(STDERR, "        Install Go (https://go.dev/dl/) — see tools/desktop-preview/README.md,\n");
+            fwrite(STDERR, "        or open {$devServerUrl} in a browser manually as a fallback.\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, "[Spinx] Building the desktop preview shell (first run only)...\n");
+        $build = proc_open([$goBin, 'build', '-o', $binaryName, '.'], [STDIN, STDOUT, STDERR], $pipes, $shellDir);
+
+        if ($build === false || proc_close($build) !== 0) {
+            fwrite(STDERR, "[Spinx] Failed to build the desktop preview shell.\n");
+            fwrite(STDERR, "        See tools/desktop-preview/README.md — common cause is missing GTK/WebKit dev packages.\n");
+            exit(1);
+        }
+    }
+
+    fwrite(STDOUT, "[Spinx] Opening desktop preview window for {$devServerUrl}...\n");
+    $process = proc_open([$binaryPath, $devServerUrl], [STDIN, STDOUT, STDERR], $pipes, $shellDir);
+
+    if ($process === false) {
+        fwrite(STDERR, "[Spinx] Failed to launch the desktop preview window.\n");
+        exit(1);
+    }
+
+    proc_close($process);
+}
+
+function findExecutableInPath(string $binary): ?string
+{
+    $finder = PHP_OS_FAMILY === 'Windows' ? 'where' : 'which';
+    $devNull = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+    $result = trim((string) shell_exec("{$finder} " . escapeshellarg($binary) . " 2>{$devNull}"));
+
+    return $result !== '' ? strtok($result, "\n") : null;
+}
+
+/**
+ * Scaffolds a native mobile shell project (build spec §10.1, Path A) —
+ * does NOT invoke gradle/xcodebuild itself, see
+ * Spinx\Generator\MobileShellGenerator's own docblock for why.
+ */
+function buildMobileCommand(string $projectRoot, ?string $flag): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    $platform = match ($flag) {
+        '--android' => 'android',
+        '--ios' => 'ios',
+        default => null,
+    };
+
+    if ($platform === null) {
+        fwrite(STDERR, "[Spinx] Usage: spinx build:mobile --android|--ios\n");
+        exit(1);
+    }
+
+    $backendUrl = resolveDevServerUrl($projectRoot);
+    $config = json_decode((string) file_get_contents($projectRoot . '/spinx.json'), true) ?? [];
+    $appName = $config['appName'] ?? 'Spinx App';
+
+    try {
+        $generator = new \Spinx\Generator\MobileShellGenerator($projectRoot);
+        $result = $platform === 'android'
+            ? $generator->generateAndroid($backendUrl, $appName)
+            : $generator->generateIos($backendUrl, $appName);
+    } catch (\RuntimeException $e) {
+        fwrite(STDERR, "[Spinx] {$e->getMessage()}\n");
+        exit(1);
+    }
+
+    fwrite(STDOUT, "[Spinx] Created " . count($result['files']) . " files.\n\n");
+    fwrite(STDOUT, $result['nextSteps'] . "\n");
+}
+
+/**
+ * Production build: compiles frontend assets via Vite (manifest-based,
+ * hashed filenames — see Spinx\Templating\Vite::productionTags()) and
+ * primes the backend's compiled DI container/route cache so the first
+ * production request doesn't pay that compile cost.
+ */
+function buildCommand(string $projectRoot): void
+{
+    $frontendDir = $projectRoot . '/frontend';
+
+    if (is_file($frontendDir . '/package.json')) {
+        if (!is_dir($frontendDir . '/node_modules')) {
+            fwrite(STDERR, "[Spinx] frontend/node_modules missing — run `npm install` inside frontend/ first.\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, "[Spinx] Building frontend assets...\n");
+        $build = proc_open(['npm', 'run', 'build'], [STDIN, STDOUT, STDERR], $pipes, $frontendDir);
+
+        if ($build === false || proc_close($build) !== 0) {
+            fwrite(STDERR, "[Spinx] Frontend build failed.\n");
+            exit(1);
+        }
+    } else {
+        fwrite(STDOUT, "[Spinx] No frontend/package.json found — skipping frontend build.\n");
+    }
+
+    if (is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDOUT, "[Spinx] Compiling backend container/route cache...\n");
+        (new \Spinx\Container\ContainerFactory($projectRoot))->build();
+    } else {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` to also prime the backend cache.\n");
+    }
+
+    fwrite(STDOUT, "[Spinx] Build complete.\n");
+}
+
+function detectRoadRunnerBinary(string $projectRoot): ?string
+{
+    $candidates = [
+        $projectRoot . '/rr' . (PHP_OS_FAMILY === 'Windows' ? '.exe' : ''),
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return null;
+}
+
+function scheduleRunCommand(string $projectRoot): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    $schedulePath = $projectRoot . '/schedule.php';
+
+    if (!is_file($schedulePath)) {
+        fwrite(STDOUT, "[Spinx] No schedule.php found at the project root — nothing to run.\n");
+        return;
+    }
+
+    $kernel = new \Spinx\Kernel\Kernel($projectRoot);
+    $kernel->boot();
+
+    $scheduler = new \Spinx\Schedule\Scheduler();
+    $register  = require $schedulePath;
+
+    if (!$register instanceof \Closure) {
+        fwrite(STDERR, "[Spinx] schedule.php must return a closure: function (Scheduler \$scheduler, \$container): void { ... }\n");
+        exit(1);
+    }
+
+    $register($scheduler, $kernel->getContainer());
+
+    $now = new \DateTimeImmutable();
+    $due = $scheduler->dueTasks($now);
+
+    if ($due === []) {
+        fwrite(STDOUT, "[Spinx] No tasks due at {$now->format('Y-m-d H:i')}.\n");
+        return;
+    }
+
+    foreach ($due as $task) {
+        fwrite(STDOUT, "[Spinx] Running: {$task->description}\n");
+
+        try {
+            ($task->callback)();
+            fwrite(STDOUT, "[Spinx] Completed: {$task->description}\n");
+        } catch (\Throwable $e) {
+            fwrite(STDERR, "[Spinx] Failed: {$task->description} — {$e->getMessage()}\n");
+        }
+    }
+}
+
+function schemaCompileCommand(string $projectRoot): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    require_once $projectRoot . '/vendor/autoload.php';
+
+    $kernel = new \Spinx\Kernel\Kernel($projectRoot);
+    $kernel->boot();
+
+    $connection = $kernel->getContainer()->get(\Spinx\Database\Connection\ConnectionManager::class)->get();
+    $outputPath = $projectRoot . '/storage/cache/schema_columns.php';
+
+    $compiler = new \Spinx\Database\Schema\SchemaCompiler($connection, $outputPath);
+    $compiler->compile();
+
+    fwrite(STDOUT, "[Spinx] Schema compiled → {$outputPath}\n");
+}
+
+function openApiGenerateCommand(string $projectRoot, array $argv): void
+{
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        fwrite(STDERR, "[Spinx] vendor/autoload.php not found — run `composer install` first.\n");
+        exit(1);
+    }
+
+    require_once $projectRoot . '/vendor/autoload.php';
+
+    $kernel = new \Spinx\Kernel\Kernel($projectRoot);
+    $kernel->boot();
+
+    $routes = new \Symfony\Component\Routing\RouteCollection();
+    (new \Spinx\Routing\ModuleLoader($projectRoot))->loadRoutes($routes);
+
+    $generator = new \Spinx\OpenApi\OpenApiGenerator($routes);
+    $json = $generator->toJson();
+
+    $outputPath = $projectRoot . '/public/openapi.json';
+    foreach ($argv as $arg) {
+        if (str_starts_with($arg, '--output=')) {
+            $outputPath = substr($arg, 9);
+        }
+    }
+
+    $dir = dirname($outputPath);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+
+    file_put_contents($outputPath, $json);
+    fwrite(STDOUT, "[Spinx] OpenAPI specification generated → {$outputPath}\n");
+}
+
+function printHelp(): void
+{
+    fwrite(STDOUT, <<<HELP
+    Spinx CLI
+
+    Usage:
+      spinx new <project> [--frontend=vue|react]  Scaffold a brand new Spinx project
+      spinx serve                        Boot the server (RoadRunner or Swoole, per spinx.json "driver") + Vite dev server
+      spinx driver:swap <driver>         Switch runtime driver: roadrunner | swoole
+      spinx make:module <Name> [--all] [--except=x,y]  Scaffold a DDD module, optionally with entity/model/repository/service/controller/migration
+      spinx make:controller <Mod> <Name> Generate a controller in Infrastructure/Http/Controllers
+      spinx make:entity <Mod> <Name>     Generate a Domain entity (no persistence awareness)
+      spinx make:service <Mod> <Name>    Generate an Application service
+      spinx make:repository <Mod> <Name> Generate a repository interface + implementation pair
+      spinx make:model <Mod> <Name>      Generate an ORM model in Infrastructure/Persistence/Models
+      spinx make:middleware <Mod> <Name> Generate a middleware class in Infrastructure/Http/Middleware
+      spinx make:migration <Mod> <desc>  Generate a timestamp-prefixed migration (desc in snake_case)
+      spinx make:mail <Mod> <Name>       Generate a Mailable + view + queueable Job to send it
+      spinx migrate [Name]               Run pending migrations (all modules, or one if named)
+      spinx module:migrate <Name>        Run pending migrations for one module
+      spinx queue:work                   Poll and process the database-backed job queue
+      spinx schedule:run                 Run all tasks in schedule.php that are due right now (invoke every minute via OS cron)
+      spinx schema:compile               Introspect the database schema and write storage/cache/schema_columns.php (run after migrations)
+      spinx openapi:generate             Generate OpenAPI 3.1 schema from routes and controller attributes (--output=public/openapi.json)
+      spinx preview --mobile             Open the dev server in a browser-based mobile device preview tool
+      spinx preview --android            Open the dev server on a running/booted Android device or emulator
+      spinx preview --ios                Open the dev server on the iOS Simulator (macOS + Xcode only)
+      spinx preview --desktop            Open the dev server in a native desktop webview window
+      spinx preview --mobile             Open the dev server in a browser-based mobile device preview tool
+      spinx build:mobile --android       Scaffold a native Android shell (Kotlin + WebView) in mobile/android/
+      spinx build:mobile --ios           Scaffold a native iOS shell (Swift + WKWebView) in mobile/ios/
+      spinx build                        Production build: compiled frontend assets + primed backend cache
+
+    HELP);
+}

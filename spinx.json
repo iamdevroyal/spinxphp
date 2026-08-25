@@ -1,0 +1,13 @@
+{
+    "driver": "roadrunner",
+    "frontend": "vue",
+    "swoole": {
+        "host": "0.0.0.0",
+        "port": 9501,
+        "workers": 4
+    },
+    "modules": {
+        "Health": true,
+        "Todo": true
+    }
+}

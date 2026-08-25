@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Application\Services;
+
+/**
+ * Application service — orchestrates Domain logic on behalf of a
+ * controller or CLI command. Depends on Domain repository interfaces,
+ * never directly on Infrastructure implementations (build spec §5.2).
+ */
+final class {{CLASS}}
+{
+    public function __construct(
+        // Inject Domain repository interfaces here, e.g.:
+        // private readonly OrderRepositoryInterface $orders,
+    ) {
+    }
+}

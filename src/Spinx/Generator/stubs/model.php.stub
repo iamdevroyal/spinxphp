@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Infrastructure\Persistence\Models;
+
+use Spinx\Database\Model;
+
+/**
+ * ORM active-record model — a persistence-layer implementation detail
+ * (build spec §5.2), not the Domain entity (see Domain/Entities). If this
+ * module needs its data exposed to Application/Domain code, do that
+ * through a repository that maps this Model to a plain Domain entity,
+ * not by passing {{CLASS}} instances around directly.
+ */
+final class {{CLASS}} extends Model
+{
+    protected static string $table = '{{TABLE}}';
+
+    /** @var string[] */
+    protected array $fillable = [
+        // 'column_name',
+    ];
+
+    /** @var array<string, string> */
+    protected array $casts = [
+        // 'column_name' => 'int',
+    ];
+}

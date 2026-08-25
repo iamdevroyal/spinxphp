@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\{{MODULE}}\Domain\Repositories;
+
+use App\Modules\{{MODULE}}\Domain\Entities\{{BASE}};
+
+/**
+ * Domain repository contract — Application services depend on this
+ * interface, never on the concrete Infrastructure implementation
+ * (build spec §5.2). Bind this to its implementation in module.php.
+ */
+interface {{INTERFACE}}
+{
+    public function find(int|string $id): ?{{BASE}};
+
+    public function save({{BASE}} $entity): void;
+
+    public function delete(int|string $id): void;
+}

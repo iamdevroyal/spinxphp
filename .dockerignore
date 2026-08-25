@@ -1,0 +1,9 @@
+/vendor/
+/node_modules/
+/frontend/node_modules/
+/storage/cache/*.php
+/storage/frontend/hot
+/storage/database.sqlite
+/rr
+/rr.exe
+/.git/
