@@ -21,6 +21,22 @@ final class AiDashboardController
         return Response::html($this->renderHtml($continuity, $apiKeySet));
     }
 
+    public function reason(): Response
+    {
+        $prompt = (string) Request::input('prompt', '');
+
+        if (trim($prompt) === '') {
+            return Response::jsonError('Prompt cannot be empty.', 422);
+        }
+
+        try {
+            $reasoning = Ai::reason($prompt);
+            return Response::jsonSuccess($reasoning->toArray());
+        } catch (\Throwable $e) {
+            return Response::jsonError($e->getMessage(), 500);
+        }
+    }
+
     public function build(): Response
     {
         $prompt = (string) Request::input('prompt', '');
@@ -46,7 +62,7 @@ final class AiDashboardController
     {
         $modulesJson = json_encode($continuity['modules'] ?? ['Auth', 'Todo', 'Health']);
         $apiKeyWarning = !$apiKeySet 
-            ? '<div style="background:rgba(225,29,99,0.15); border:1px solid #E11D63; color:#ffb2bf; padding:12px 18px; border-radius:12px; margin-bottom:20px; font-size:14px;">⚠️ <strong>ANTHROPIC_API_KEY</strong> is missing in <code>.env</code>. Add your key to start building autonomously.</div>' 
+            ? '<div style="background:rgba(225,29,99,0.15); border:1px solid #E11D63; color:#ffb2bf; padding:12px 18px; border-radius:12px; margin-bottom:20px; font-size:14px;">⚠️ <strong>API Key</strong> is missing in <code>.env</code>. Add your key to enable full autonomous execution.</div>' 
             : '';
 
         return <<<HTML
@@ -100,7 +116,7 @@ final class AiDashboardController
         .prompt-box { display: flex; flex-direction: column; gap: 16px; }
         textarea {
             width: 100%;
-            height: 140px;
+            height: 130px;
             background: rgba(0,0,0,0.4);
             border: 1px solid var(--border);
             border-radius: 12px;
@@ -113,23 +129,34 @@ final class AiDashboardController
             transition: border-color 0.2s;
         }
         textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
-        .btn-build {
+        .btn-primary {
             background: linear-gradient(135deg, #E11D63, #BE185D);
             color: #FFF;
             border: none;
-            padding: 14px 28px;
+            padding: 12px 24px;
             border-radius: 12px;
             font-weight: 700;
-            font-size: 15px;
+            font-size: 14px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             transition: all 0.2s;
         }
-        .btn-build:hover { transform: translateY(-1px); box-shadow: 0 10px 25px var(--primary-glow); }
-        .btn-build:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 25px var(--primary-glow); }
+        .btn-secondary {
+            background: rgba(255,255,255,0.06);
+            color: #FFF;
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.12); }
         .log-terminal {
             background: #050506;
             border: 1px solid var(--border);
@@ -166,6 +193,14 @@ final class AiDashboardController
             font-family: var(--font-mono);
             margin: 4px 4px 4px 0;
         }
+        .reason-box {
+            background: rgba(225,29,99,0.06);
+            border: 1px solid rgba(225,29,99,0.25);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -175,7 +210,7 @@ final class AiDashboardController
                 <div class="logo-badge">SPINX AI</div>
                 <div>
                     <h1 class="title">Autonomous Framework Builder</h1>
-                    <p class="subtitle">Powered by Anthropic Claude Sonnet 4.6 • Strict DDD Architecture</p>
+                    <p class="subtitle">Strict DDD Architecture • Bidirectional Grounding • Sandboxed Execution</p>
                 </div>
             </div>
             <div class="agent-pill">⚡ Orchestrator Ready</div>
@@ -187,20 +222,32 @@ final class AiDashboardController
             <div style="display:flex; flex-direction:column; gap:24px;">
                 <div class="card prompt-box">
                     <h2 style="font-size:18px; font-weight:700;">Prompt the Builder</h2>
-                    <textarea id="promptInput" placeholder="Describe the module or feature you want to build (e.g. 'Create an Invoicing module with Customer entities, payment repository, and Stripe webhooks')"></textarea>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <textarea id="promptInput" placeholder="Describe the module or feature you want to build (e.g. 'Create a Subscription Billing module with Stripe checkout, plan repository, and dashboard view')"></textarea>
+                    
+                    <div id="reasoningPanel" style="display:none;" class="reason-box">
+                        <h4 style="font-weight:700; color:#ffb2bf; margin-bottom:8px;">🧠 Architectural Blueprint & Reasoning</h4>
+                        <p id="reasoningText" style="color:#D4D4D8; margin-bottom:10px;"></p>
+                        <div id="questionsContainer" style="margin-top:8px;"></div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
                         <span style="font-size:13px; color:var(--text-muted);">Strict DDD rules applied automatically</span>
-                        <button id="btnBuild" class="btn-build" onclick="runBuild()">
-                            <span>Generate & Build Module</span>
-                            <span>⚡</span>
-                        </button>
+                        <div style="display:flex; gap:10px;">
+                            <button id="btnReason" class="btn-secondary" onclick="runReason()">
+                                <span>1. Reason & Blueprint</span>
+                            </button>
+                            <button id="btnBuild" class="btn-primary" onclick="runBuild()">
+                                <span>2. Execute Build</span>
+                                <span>⚡</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <h2 style="font-size:18px; font-weight:700; margin-bottom:14px;">Build Execution Stream</h2>
                     <div id="logTerminal" class="log-terminal">
-                        <span style="color:#71717A;">// AI Builder ready. Enter a prompt above to orchestrate Domain, Application, and Infrastructure code.</span>
+                        <span style="color:#71717A;">// AI Builder ready. Click "1. Reason & Blueprint" to analyze architecture or "2. Execute Build" to generate code.</span>
                     </div>
                 </div>
             </div>
@@ -236,6 +283,53 @@ final class AiDashboardController
             moduleList.appendChild(span);
         });
 
+        async function runReason() {
+            const prompt = document.getElementById('promptInput').value.trim();
+            if (!prompt) return;
+
+            const btn = document.getElementById('btnReason');
+            const term = document.getElementById('logTerminal');
+            const rPanel = document.getElementById('reasoningPanel');
+            const rText = document.getElementById('reasoningText');
+            const qBox = document.getElementById('questionsContainer');
+
+            btn.disabled = true;
+            btn.textContent = 'Reasoning...';
+            term.innerHTML = '<span style="color:#E11D63;">[ReasoningEngine]</span> Inspecting project context and cross-referencing sibling modules...<br>';
+
+            try {
+                const res = await fetch('/_spinx/ai/reason', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    const result = data.data;
+                    rPanel.style.display = 'block';
+                    rText.textContent = result.analysis;
+                    
+                    if (result.questions && result.questions.length > 0) {
+                        qBox.innerHTML = '<strong style="color:#ff92ad;">Clarifying Questions:</strong><ul style="margin:6px 0 0 16px; color:#A1A1AA;">' + 
+                            result.questions.map(q => '<li>' + q + '</li>').join('') + '</ul>';
+                    } else {
+                        qBox.innerHTML = '<span style="color:#10B981;">✔ Requirements clear. Ready for autonomous build.</span>';
+                    }
+
+                    term.innerHTML += '<br><span style="color:#10B981;">✔ Reasoning complete!</span><br><br>' + 
+                        '<pre style="white-space:pre-wrap; color:#E4E4E7;">' + JSON.stringify(result.proposedPlan, null, 2) + '</pre>';
+                } else {
+                    term.innerHTML += '<br><span style="color:#EF4444;">✖ Error: ' + (data.message || 'Unknown error') + '</span>';
+                }
+            } catch(e) {
+                term.innerHTML += '<br><span style="color:#EF4444;">✖ Network error: ' + e.message + '</span>';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '1. Reason & Blueprint';
+            }
+        }
+
         async function runBuild() {
             const prompt = document.getElementById('promptInput').value.trim();
             if (!prompt) return;
@@ -244,7 +338,7 @@ final class AiDashboardController
             const term = document.getElementById('logTerminal');
             btn.disabled = true;
             btn.innerHTML = '<span>Building...</span> <span>⏳</span>';
-            term.innerHTML = '<span style="color:#E11D63;">[Orchestrator]</span> Analyzing prompt and formulating DDD execution plan...<br>';
+            term.innerHTML = '<span style="color:#E11D63;">[Orchestrator]</span> Starting multi-agent autonomous DDD build loop...<br>';
 
             try {
                 const res = await fetch('/_spinx/ai/build', {
@@ -264,7 +358,7 @@ final class AiDashboardController
                 term.innerHTML += '<br><span style="color:#EF4444;">✖ Network error: ' + e.message + '</span>';
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<span>Generate & Build Module</span> <span>⚡</span>';
+                btn.innerHTML = '<span>2. Execute Build</span> <span>⚡</span>';
             }
         }
     </script>

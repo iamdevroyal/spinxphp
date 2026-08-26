@@ -14,16 +14,20 @@ use Spinx\Ai\Agents\RoutingAgent;
 use Spinx\Ai\Agents\SecurityAgent;
 use Spinx\Ai\Anthropic\ClaudeClient;
 use Spinx\Ai\Continuity\ContinuityTracker;
+use Spinx\Ai\Guard\AiGuard;
+use Spinx\Ai\Reasoning\ReasoningEngine;
+use Spinx\Ai\Reasoning\ReasoningResult;
 use Spinx\Ai\Tools\ToolRegistry;
 
 /**
- * Main AI Builder manager coordinating Claude client, tools, continuity, and specialized agents.
+ * Main AI Builder manager coordinating Claude client, tools, continuity, reasoning engine, and specialized agents.
  */
 final class AiManager
 {
     private ClaudeClient $client;
     private ToolRegistry $tools;
     private ContinuityTracker $continuity;
+    private ReasoningEngine $reasoning;
     /** @var array<string, AgentInterface> */
     private array $agents = [];
 
@@ -33,20 +37,41 @@ final class AiManager
         ?ToolRegistry $tools = null,
         ?ContinuityTracker $continuity = null,
     ) {
-        $this->client = $client ?? new ClaudeClient();
-        $this->tools = $tools ?? new ToolRegistry($this->projectRoot);
+        $this->client     = $client ?? new ClaudeClient();
+        $this->tools      = $tools ?? new ToolRegistry($this->projectRoot);
         $this->continuity = $continuity ?? new ContinuityTracker($this->projectRoot);
+        $this->reasoning  = new ReasoningEngine($this->projectRoot, $this->client, $this->continuity);
         $this->registerDefaultAgents();
     }
 
+    /**
+     * Reason about a developer prompt, inspect project context, and generate plan + clarifying questions.
+     */
+    public function reason(string $prompt): ReasoningResult
+    {
+        AiGuard::validatePrompt($prompt, $this->continuity);
+
+        return $this->reasoning->analyze($prompt);
+    }
+
+    /**
+     * Interactive chat with the Orchestrator agent.
+     */
     public function chat(string $prompt, array $conversationHistory = [], ?callable $onStep = null): array
     {
+        AiGuard::validatePrompt($prompt, $this->continuity);
+
         return $this->agent('orchestrator')->handle($prompt, $conversationHistory, $onStep);
     }
 
+    /**
+     * Autonomous build execution.
+     */
     public function build(string $prompt, ?callable $onStep = null): array
     {
-        $enhancedPrompt = "Please build the following feature/module end-to-end following Spinx strict DDD standards: {$prompt}";
+        AiGuard::validatePrompt($prompt, $this->continuity);
+
+        $enhancedPrompt = "Please build the following feature/module end-to-end following Spinx strict DDD standards. Inspect existing frontend views and sibling modules to ensure 100% contract parity without stubs: {$prompt}";
 
         return $this->agent('orchestrator')->handle($enhancedPrompt, [], $onStep);
     }
@@ -73,6 +98,11 @@ final class AiManager
     public function getContinuity(): ContinuityTracker
     {
         return $this->continuity;
+    }
+
+    public function getReasoning(): ReasoningEngine
+    {
+        return $this->reasoning;
     }
 
     public function getClient(): ClaudeClient

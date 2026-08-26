@@ -38,7 +38,20 @@ final class Request
     public static function all(): array
     {
         $req = self::instance();
-        return array_merge($req->query->all(), $req->request->all());
+        $data = array_merge($req->query->all(), $req->request->all());
+
+        $contentType = $req->headers->get('Content-Type', '');
+        if (str_contains($contentType, 'application/json')) {
+            $raw = (string) $req->getContent();
+            if ($raw !== '') {
+                $json = @json_decode($raw, true);
+                if (is_array($json)) {
+                    $data = array_merge($data, $json);
+                }
+            }
+        }
+
+        return $data;
     }
 
     public static function input(?string $key = null, mixed $default = null): mixed
@@ -47,8 +60,8 @@ final class Request
             return self::all();
         }
 
-        $req = self::instance();
-        return $req->request->get($key, $req->query->get($key, $default));
+        $all = self::all();
+        return $all[$key] ?? $default;
     }
 
     public static function get(string $key, mixed $default = null): mixed

@@ -6,12 +6,15 @@ namespace Spinx\Ai;
 
 use Spinx\Ai\Agents\AgentInterface;
 use Spinx\Ai\Continuity\ContinuityTracker;
+use Spinx\Ai\Reasoning\ReasoningEngine;
+use Spinx\Ai\Reasoning\ReasoningResult;
 use Spinx\Ai\Tools\ToolRegistry;
 
 /**
  * Static Facade for Spinx AI Framework Builder.
  *
  * Usage:
+ *   $plan   = Ai::reason('Build a Stripe billing module');
  *   $result = Ai::build('Create a Payments module with Stripe webhooks');
  *   $chat   = Ai::chat('Explain how the continuity tracker works');
  *   $agent  = Ai::agent('architect');
@@ -38,6 +41,11 @@ final class Ai
         return self::$manager;
     }
 
+    public static function reason(string $prompt): ReasoningResult
+    {
+        return self::getManager()->reason($prompt);
+    }
+
     public static function chat(string $prompt, array $conversationHistory = [], ?callable $onStep = null): array
     {
         return self::getManager()->chat($prompt, $conversationHistory, $onStep);
@@ -61,5 +69,10 @@ final class Ai
     public static function continuity(): ContinuityTracker
     {
         return self::getManager()->getContinuity();
+    }
+
+    public static function reasoning(): ReasoningEngine
+    {
+        return self::getManager()->getReasoning();
     }
 }

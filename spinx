@@ -1380,6 +1380,33 @@ function aiBuildCommand(string $projectRoot, ?string $prompt, array $extraArgs =
     $ai = new \Spinx\Ai\AiManager($projectRoot);
 
     try {
+        fwrite(STDOUT, "\033[35m[1/2 Reasoning & Blueprint]\033[0m Inspecting project context and cross-referencing modules...\n");
+        $reasoning = $ai->reason($fullPrompt);
+
+        fwrite(STDOUT, "  → " . $reasoning->analysis . "\n");
+
+        if (!empty($reasoning->questions)) {
+            fwrite(STDOUT, "\n\033[33m[Clarifying Questions]\033[0m\n");
+            foreach ($reasoning->questions as $idx => $q) {
+                fwrite(STDOUT, "  " . ($idx + 1) . ". {$q}\n");
+            }
+        }
+
+        if (!empty($reasoning->suggestions)) {
+            fwrite(STDOUT, "\n\033[36m[Architectural Plan]\033[0m\n");
+            foreach ($reasoning->suggestions as $s) {
+                fwrite(STDOUT, "  • {$s}\n");
+            }
+        }
+
+        fwrite(STDOUT, "\n\033[1;32mProceed with autonomous multi-agent build? [Y/n]: \033[0m");
+        $confirm = trim((string) fgets(STDIN));
+        if ($confirm !== '' && strtolower($confirm) !== 'y' && strtolower($confirm) !== 'yes') {
+            fwrite(STDOUT, "\n\033[33mBuild cancelled by developer.\033[0m\n\n");
+            return;
+        }
+
+        fwrite(STDOUT, "\n\033[35m[2/2 Multi-Agent Build]\033[0m Executing autonomous agents...\n");
         $result = $ai->build($fullPrompt, function(string $type, string $message, string $agent) {
             if ($type === 'tool_call') {
                 fwrite(STDOUT, "  \033[33m⚡ [{$agent}]\033[0m {$message}\n");
@@ -1416,8 +1443,8 @@ function printHelp(): void
       spinx new <project> [--frontend=vue|react]  Scaffold a brand new Spinx project
       spinx serve                        Boot the server (RoadRunner or Swoole, per spinx.json "driver") + Vite dev server
       spinx driver:swap <driver>         Switch runtime driver: roadrunner | swoole
-      spinx ai:chat                      Launch conversational AI terminal builder (Claude Sonnet 4.6)
-      spinx ai:build "<prompt>"          Autonomous one-shot module generator with strict DDD enforcement
+      spinx ai:chat                      Launch conversational AI terminal builder
+      spinx ai:build "<prompt>"          Autonomous module generator with reasoning, context-grounding, and strict DDD
       spinx ai:ui                        Open local AI Builder Web Dashboard in browser
       spinx make:module <Name> [--all] [--except=x,y]  Scaffold a DDD module, optionally with entity/model/repository/service/controller/migration
       spinx make:controller <Mod> <Name> Generate a controller in Infrastructure/Http/Controllers

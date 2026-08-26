@@ -6,6 +6,24 @@ namespace Spinx\Ai\Tools;
 
 final class SpinxCommandTool implements ToolInterface
 {
+    private const ALLOWED_COMMANDS = [
+        'make:module',
+        'make:migration',
+        'make:model',
+        'make:controller',
+        'migrate',
+        'migrate:rollback',
+        'migrate:fresh',
+        'schema:compile',
+        'cache:clear',
+        'optimize',
+        'route:list',
+        'schedule:run',
+        'queue:work',
+        'ai:build',
+        'ai:chat',
+    ];
+
     public function __construct(private readonly string $projectRoot) {}
 
     public function getName(): string
@@ -15,7 +33,7 @@ final class SpinxCommandTool implements ToolInterface
 
     public function getDescription(): string
     {
-        return 'Run a Spinx CLI command (e.g. "make:module Billing --all", "migrate", "schema:compile", "cache:clear").';
+        return 'Run a safe Spinx CLI command (e.g. "make:module Billing --all", "migrate", "schema:compile", "cache:clear"). Only pre-approved framework commands are permitted.';
     }
 
     public function getInputSchema(): array
@@ -25,7 +43,7 @@ final class SpinxCommandTool implements ToolInterface
             'properties' => [
                 'command' => [
                     'type'        => 'string',
-                    'description' => 'The spinx CLI command and arguments (e.g. "make:module Billing --all")',
+                    'description' => 'The spinx CLI command and arguments (e.g. "make:module Billing --all", "migrate", "schema:compile")',
                 ],
             ],
             'required'   => ['command'],
@@ -34,7 +52,28 @@ final class SpinxCommandTool implements ToolInterface
 
     public function execute(array $arguments): array
     {
-        $cmd = escapeshellcmd(PHP_BINARY . ' ' . escapeshellarg($this->projectRoot . '/spinx') . ' ' . $arguments['command']);
+        $commandStr = trim((string) ($arguments['command'] ?? ''));
+
+        if ($commandStr === '') {
+            return ['error' => 'Command string cannot be empty.'];
+        }
+
+        // Validate command against allowlist
+        $parts = preg_split('/\s+/', $commandStr);
+        $baseCommand = $parts[0] ?? '';
+
+        if (!in_array($baseCommand, self::ALLOWED_COMMANDS, true)) {
+            return [
+                'error' => "Command [{$baseCommand}] is not permitted. Allowed commands: " . implode(', ', self::ALLOWED_COMMANDS),
+            ];
+        }
+
+        // Reject dangerous shell chaining/redirection characters
+        if (preg_match('/[;&|`$><]/', $commandStr)) {
+            return ['error' => 'Command chaining, piping, or shell redirection is not allowed.'];
+        }
+
+        $cmd = PHP_BINARY . ' ' . escapeshellarg($this->projectRoot . '/spinx') . ' ' . $commandStr;
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
@@ -54,75 +93,11 @@ final class SpinxCommandTool implements ToolInterface
         $exitCode = proc_close($process);
 
         return [
-            'command'  => $arguments['command'],
+            'command'  => $commandStr,
             'exitCode' => $exitCode,
             'stdout'   => $stdout,
             'stderr'   => $stderr,
             'success'  => $exitCode === 0,
-        ];
-    }
-}
-
-final class CodeAnalyzerTool implements ToolInterface
-{
-    public function __construct(private readonly string $projectRoot) {}
-
-    public function getName(): string
-    {
-        return 'analyze_code';
-    }
-
-    public function getDescription(): string
-    {
-        return 'Perform PHP syntax check and Spinx strict DDD compliance analysis on a file.';
-    }
-
-    public function getInputSchema(): array
-    {
-        return [
-            'type'       => 'object',
-            'properties' => [
-                'path' => ['type' => 'string', 'description' => 'Relative path to PHP file'],
-            ],
-            'required'   => ['path'],
-        ];
-    }
-
-    public function execute(array $arguments): array
-    {
-        $path = $this->projectRoot . '/' . ltrim($arguments['path'], '/\\');
-        if (!is_file($path)) {
-            return ['error' => "File not found: {$arguments['path']}"];
-        }
-
-        // 1. PHP Syntax Check
-        $lintCmd = escapeshellcmd(PHP_BINARY . ' -l ' . escapeshellarg($path));
-        $output = (string) shell_exec($lintCmd);
-        $hasSyntaxError = !str_contains($output, 'No syntax errors detected');
-
-        if ($hasSyntaxError) {
-            return [
-                'valid' => false,
-                'lint'  => trim($output),
-            ];
-        }
-
-        // 2. DDD Structural Checks
-        $issues = [];
-        $content = (string) file_get_contents($path);
-
-        if (str_contains($path, '/Domain/') && (str_contains($content, 'Symfony\\') || str_contains($content, 'Doctrine\\') || str_contains($content, 'Model'))) {
-            $issues[] = 'Domain layer contains external infrastructure dependencies (Symfony/DBAL/Model). Keep Domain pure!';
-        }
-
-        if (str_contains($path, '/Controllers/') && str_contains($content, 'Symfony\\Component\\HttpFoundation\\Response')) {
-            $issues[] = 'Controller imports raw Symfony Response instead of Spinx\\Http\\Response.';
-        }
-
-        return [
-            'valid'  => empty($issues) && !$hasSyntaxError,
-            'lint'   => 'No syntax errors detected.',
-            'issues' => $issues,
         ];
     }
 }

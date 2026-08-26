@@ -273,6 +273,10 @@ final class Kernel
             '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'build'],
         ], [], [], '', [], ['POST']));
 
+        $routes->add('__spinx_ai_reason', new \Symfony\Component\Routing\Route('/_spinx/ai/reason', [
+            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'reason'],
+        ], [], [], '', [], ['POST']));
+
         $routes->add('__spinx_ai_context', new \Symfony\Component\Routing\Route('/_spinx/ai/context', [
             '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'context'],
         ], [], [], '', [], ['GET']));

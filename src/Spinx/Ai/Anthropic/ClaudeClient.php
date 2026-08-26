@@ -78,6 +78,7 @@ final class ClaudeClient
             CURLOPT_POSTFIELDS     => $json,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
                 'x-api-key: ' . $this->apiKey,
