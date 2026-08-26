@@ -54,29 +54,17 @@ return [
 
     'routes' => static function (RouteBuilder $routes): void {
         // Guest Routes (Login & Register)
-        Route::get(['auth.login', '/login'])
-            ->middleware(['guest', 'csrf'])
-            ->controller('auth@showLogin');
+        Route::get(['auth.login', '/login'])->middleware(['guest', 'csrf'])->controller('auth@showLogin');
 
-        Route::post(['auth.login.submit', '/login'])
-            ->middleware(['guest', 'csrf'])
-            ->controller('auth@login');
+        Route::post(['auth.login.submit', '/login'])->middleware(['guest', 'csrf'])->controller('auth@login');
 
-        Route::get(['auth.register', '/register'])
-            ->middleware(['guest', 'csrf'])
-            ->controller('auth@showRegister');
+        Route::get(['auth.register', '/register'])->middleware(['guest', 'csrf'])->controller('auth@showRegister');
 
-        Route::post(['auth.register.submit', '/register'])
-            ->middleware(['guest', 'csrf'])
-            ->controller('auth@register');
+        Route::post(['auth.register.submit', '/register'])->middleware(['guest', 'csrf'])->controller('auth@register');
 
         // Authenticated Protected Routes
-        Route::post(['auth.logout', '/logout'])
-            ->middleware(['auth', 'csrf'])
-            ->controller('auth@logout');
+        Route::post(['auth.logout', '/logout'])->middleware(['auth', 'csrf'])->controller('auth@logout');
 
-        Route::get(['auth.dashboard', '/dashboard'])
-            ->middleware(['auth', 'csrf'])
-            ->controller('auth@dashboard');
+        Route::get(['auth.dashboard', '/dashboard'])->middleware(['auth', 'csrf'])->controller('auth@dashboard');
     },
 ];

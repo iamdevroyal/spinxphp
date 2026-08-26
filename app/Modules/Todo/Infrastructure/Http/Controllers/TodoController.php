@@ -6,16 +6,16 @@ namespace App\Modules\Todo\Infrastructure\Http\Controllers;
 
 use App\Modules\Todo\Application\Services\TodoService;
 use Spinx\Http\Request;
-use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
+use Spinx\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Unified multi-action Todo Controller.
  *
  * Adheres to strict DDD:
- *   - Extracts HTTP inputs
- *   - Calls TodoService for application business logic
- *   - Returns views or redirects.
+ *   - Uses Request::validate() for input validation
+ *   - Delegates business logic to TodoService
+ *   - Returns views or redirects via facades.
  */
 final class TodoController
 {
@@ -28,7 +28,7 @@ final class TodoController
      * List all todos.
      * GET /todos
      */
-    public function index(?SymfonyRequest $request = null): Response
+    public function index(): Response
     {
         $todos = $this->todoService->listTodos();
 
@@ -42,12 +42,16 @@ final class TodoController
      * Store a new todo.
      * POST /todos
      */
-    public function store(?SymfonyRequest $request = null): Response
+    public function store(): Response
     {
-        $title = (string) Request::input('title', '');
+        try {
+            $data = Request::validate([
+                'title' => 'required|string|min:1|max:255',
+            ]);
 
-        if (trim($title) !== '') {
-            $this->todoService->createTodo($title);
+            $this->todoService->createTodo($data['title']);
+        } catch (ValidationException) {
+            // Silently skip empty/invalid todo submissions — redirect back
         }
 
         return redirect('/todos');
@@ -57,9 +61,11 @@ final class TodoController
      * Toggle a todo's completion status.
      * POST /todos/{id}/toggle
      */
-    public function toggle(?SymfonyRequest $request = null, string|int $id = 0): Response
+    public function toggle(string|int $id = 0): Response
     {
-        $this->todoService->toggleTodo($id);
+        if ((int) $id > 0) {
+            $this->todoService->toggleTodo($id);
+        }
 
         return redirect('/todos');
     }

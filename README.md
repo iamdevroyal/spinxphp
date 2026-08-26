@@ -4,7 +4,7 @@
 
 **The Modern High-Performance PHP Framework for Persistent Workers, Enforced DDD Architecture, and Reactive Island Hydration.**
 
-[![Latest Version](https://img.shields.io/badge/release-v1.0.14-6366f1.svg?style=flat-square)](https://github.com/iamdevroyal/spinxphp)
+[![Latest Version](https://img.shields.io/badge/release-v1.0.15-6366f1.svg?style=flat-square)](https://github.com/iamdevroyal/spinxphp)
 [![Documentation](https://img.shields.io/badge/docs-spinxphp.pages.dev%2Fdocs-ec4899.svg?style=flat-square)](https://spinxphp.pages.dev/docs)
 [![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8b5cf6.svg?style=flat-square)](https://php.net)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)

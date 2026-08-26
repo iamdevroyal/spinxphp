@@ -6,16 +6,17 @@ namespace App\Modules\Auth\Infrastructure\Http\Controllers;
 
 use App\Modules\Auth\Application\Services\AuthService;
 use Spinx\Http\Request;
-use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
-use Symfony\Component\HttpFoundation\Response;
+use Spinx\Http\Response;
+use Spinx\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * Unified Auth Controller.
  *
  * In strict DDD architecture, this controller is ONLY responsible for:
- *   1. HTTP Request extraction and basic form validation
- *   2. Delegating business logic to Application Services (AuthService)
- *   3. Returning appropriate View templates or HTTP Responses.
+ *   1. HTTP Request validation using Request::validate() / Validator facade
+ *   2. Delegating business logic to AuthService
+ *   3. Returning appropriate View templates or HTTP Responses via facades.
  */
 final class AuthController
 {
@@ -28,12 +29,12 @@ final class AuthController
      * Display the login view.
      * GET /login
      */
-    public function showLogin(?SymfonyRequest $request = null): Response
+    public function showLogin(): SymfonyResponse
     {
         return view('Auth::login', [
-            'title' => 'Sign In — Spinx App',
-            'error' => null,
-            'email' => '',
+            'title'  => 'Sign In — Spinx App',
+            'errors' => [],
+            'email'  => '',
         ]);
     }
 
@@ -41,27 +42,29 @@ final class AuthController
      * Handle login authentication.
      * POST /login
      */
-    public function login(?SymfonyRequest $request = null): Response
+    public function login(): SymfonyResponse
     {
-        $email = trim((string) Request::input('email'));
-        $password = (string) Request::input('password');
-
-        if ($email === '' || $password === '') {
+        try {
+            $data = Request::validate([
+                'email'    => 'required|email|max:255',
+                'password' => 'required|string|min:1',
+            ]);
+        } catch (ValidationException $e) {
             return view('Auth::login', [
-                'title' => 'Sign In — Spinx App',
-                'error' => 'Please enter both your email address and password.',
-                'email' => $email,
+                'title'  => 'Sign In — Spinx App',
+                'errors' => $e->errors(),
+                'email'  => Request::input('email', ''),
             ], 422);
         }
 
-        if ($this->authService->login($email, $password)) {
+        if ($this->authService->login($data['email'], $data['password'])) {
             return redirect('/dashboard');
         }
 
         return view('Auth::login', [
-            'title' => 'Sign In — Spinx App',
-            'error' => 'Invalid email or password. Please try again.',
-            'email' => $email,
+            'title'  => 'Sign In — Spinx App',
+            'errors' => ['email' => ['Invalid email or password. Please try again.']],
+            'email'  => $data['email'],
         ], 401);
     }
 
@@ -69,13 +72,13 @@ final class AuthController
      * Display the registration view.
      * GET /register
      */
-    public function showRegister(?SymfonyRequest $request = null): Response
+    public function showRegister(): SymfonyResponse
     {
         return view('Auth::register', [
-            'title' => 'Create Account — Spinx App',
-            'error' => null,
-            'name'  => '',
-            'email' => '',
+            'title'  => 'Create Account — Spinx App',
+            'errors' => [],
+            'name'   => '',
+            'email'  => '',
         ]);
     }
 
@@ -83,34 +86,34 @@ final class AuthController
      * Handle account registration.
      * POST /register
      */
-    public function register(?SymfonyRequest $request = null): Response
+    public function register(): SymfonyResponse
     {
-        $name = trim((string) Request::input('name'));
-        $email = strtolower(trim((string) Request::input('email')));
-        $password = (string) Request::input('password');
-        $passwordConfirm = (string) Request::input('password_confirmation');
-
-        if ($name === '' || $email === '' || $password === '') {
-            return $this->renderRegisterError('All fields are required.', $name, $email, 422);
-        }
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return $this->renderRegisterError('Please enter a valid email address.', $name, $email, 422);
-        }
-
-        if (strlen($password) < 6) {
-            return $this->renderRegisterError('Password must be at least 6 characters.', $name, $email, 422);
-        }
-
-        if ($password !== $passwordConfirm) {
-            return $this->renderRegisterError('Passwords do not match.', $name, $email, 422);
+        try {
+            $data = Request::validate([
+                'name'                  => 'required|string|min:2|max:100',
+                'email'                 => 'required|email|max:255',
+                'password'              => 'required|string|min:6|confirmed',
+                'password_confirmation' => 'required|string|min:6',
+            ]);
+        } catch (ValidationException $e) {
+            return view('Auth::register', [
+                'title'  => 'Create Account — Spinx App',
+                'errors' => $e->errors(),
+                'name'   => Request::input('name', ''),
+                'email'  => Request::input('email', ''),
+            ], 422);
         }
 
         try {
-            $this->authService->register($name, $email, $password);
+            $this->authService->register($data['name'], $data['email'], $data['password']);
             return redirect('/dashboard');
         } catch (\InvalidArgumentException $e) {
-            return $this->renderRegisterError($e->getMessage(), $name, $email, 422);
+            return view('Auth::register', [
+                'title'  => 'Create Account — Spinx App',
+                'errors' => ['email' => [$e->getMessage()]],
+                'name'   => $data['name'],
+                'email'  => $data['email'],
+            ], 422);
         }
     }
 
@@ -118,7 +121,7 @@ final class AuthController
      * Display the protected user dashboard.
      * GET /dashboard
      */
-    public function dashboard(?SymfonyRequest $request = null): Response
+    public function dashboard(): SymfonyResponse
     {
         $user = $this->authService->currentUser();
 
@@ -134,20 +137,10 @@ final class AuthController
      * Handle user logout.
      * POST /logout
      */
-    public function logout(?SymfonyRequest $request = null): Response
+    public function logout(): SymfonyResponse
     {
         $this->authService->logout();
 
         return redirect('/login');
-    }
-
-    private function renderRegisterError(string $message, string $name, string $email, int $status): Response
-    {
-        return view('Auth::register', [
-            'title' => 'Create Account — Spinx App',
-            'error' => $message,
-            'name'  => $name,
-            'email' => $email,
-        ], $status);
     }
 }

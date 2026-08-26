@@ -17,14 +17,14 @@ use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 
 /**
- * Boots exactly once per process (see build spec §3). Every ServerAdapter
+ * Boots exactly once per process. Every ServerAdapter
  * calls boot() a single time at process start, then reuses this same
  * Kernel instance for the lifetime of the process — this is what gives
  * Spinx its speed advantage over a traditional per-request PHP bootstrap.
  */
 final class Kernel
 {
-    public const VERSION = '1.0.14';
+    public const VERSION = '1.0.15';
 
     private ContainerInterface $container;
     private RouteCollection $routes;
@@ -54,7 +54,7 @@ final class Kernel
 
         // Model is an active-record base class, so it needs a connection
         // available via a static resolver rather than constructor
-        // injection (build spec §7) — wired once here, at boot, not
+        // injection — wired once here, at boot, not
         // per-request.
         if ($this->container->has(\Spinx\Database\Connection\ConnectionManager::class)) {
             $manager = $this->container->get(\Spinx\Database\Connection\ConnectionManager::class);

@@ -127,4 +127,82 @@ final class Request
     {
         return Auth::user();
     }
+
+    /**
+     * Validate the current request's input against the given rules.
+     * Throws ValidationException on failure.
+     *
+     * Usage:
+     *   $validated = Request::validate([
+     *       'email'    => 'required|email|max:255',
+     *       'password' => 'required|string|min:8',
+     *   ]);
+     *
+     * @param array<string, string> $rules
+     * @param array<string, string> $messages
+     * @return array<string, mixed>
+     * @throws \Spinx\Validation\ValidationException
+     */
+    public static function validate(array $rules, array $messages = []): array
+    {
+        return \Spinx\Validation\Validator::make(self::all(), $rules, $messages)->validate();
+    }
+
+    /**
+     * Check if the request expects a JSON response.
+     */
+    public static function wantsJson(): bool
+    {
+        $accept = self::header('Accept', '');
+        return str_contains((string) $accept, 'application/json');
+    }
+
+    /**
+     * Check if the request is an AJAX/XHR request.
+     */
+    public static function ajax(): bool
+    {
+        return self::header('X-Requested-With') === 'XMLHttpRequest';
+    }
+
+    /**
+     * Retrieve only the specified keys from the input.
+     *
+     * @param string[] $keys
+     * @return array<string, mixed>
+     */
+    public static function only(array $keys): array
+    {
+        $all = self::all();
+        return array_intersect_key($all, array_flip($keys));
+    }
+
+    /**
+     * Retrieve all input except the specified keys.
+     *
+     * @param string[] $keys
+     * @return array<string, mixed>
+     */
+    public static function except(array $keys): array
+    {
+        $all = self::all();
+        return array_diff_key($all, array_flip($keys));
+    }
+
+    /**
+     * Retrieve an uploaded file from the request.
+     */
+    public static function file(string $key): mixed
+    {
+        return self::instance()->files->get($key);
+    }
+
+    /**
+     * Check if a file was uploaded for the given key.
+     */
+    public static function hasFile(string $key): bool
+    {
+        return self::instance()->files->has($key);
+    }
 }
+
