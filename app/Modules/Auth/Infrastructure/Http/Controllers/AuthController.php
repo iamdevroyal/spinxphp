@@ -8,7 +8,6 @@ use App\Modules\Auth\Application\Services\AuthService;
 use Spinx\Http\Request;
 use Spinx\Http\Response;
 use Spinx\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * Unified Auth Controller.
@@ -29,7 +28,7 @@ final class AuthController
      * Display the login view.
      * GET /login
      */
-    public function showLogin(): SymfonyResponse
+    public function showLogin(): Response
     {
         return view('Auth::login', [
             'title'  => 'Sign In — Spinx App',
@@ -42,7 +41,7 @@ final class AuthController
      * Handle login authentication.
      * POST /login
      */
-    public function login(): SymfonyResponse
+    public function login(): Response
     {
         try {
             $data = Request::validate([
@@ -72,7 +71,7 @@ final class AuthController
      * Display the registration view.
      * GET /register
      */
-    public function showRegister(): SymfonyResponse
+    public function showRegister(): Response
     {
         return view('Auth::register', [
             'title'  => 'Create Account — Spinx App',
@@ -86,7 +85,7 @@ final class AuthController
      * Handle account registration.
      * POST /register
      */
-    public function register(): SymfonyResponse
+    public function register(): Response
     {
         try {
             $data = Request::validate([
@@ -121,7 +120,7 @@ final class AuthController
      * Display the protected user dashboard.
      * GET /dashboard
      */
-    public function dashboard(): SymfonyResponse
+    public function dashboard(): Response
     {
         $user = $this->authService->currentUser();
 
@@ -137,7 +136,7 @@ final class AuthController
      * Handle user logout.
      * POST /logout
      */
-    public function logout(): SymfonyResponse
+    public function logout(): Response
     {
         $this->authService->logout();
 

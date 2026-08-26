@@ -7,12 +7,11 @@ namespace App\Modules\Health\Infrastructure\Http\Controllers;
 use App\Modules\Health\Infrastructure\Persistence\Models\HealthCheckLog;
 use Spinx\Http\Response;
 use Spinx\Support\Config;
-use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
  * Unified Health & Welcome Controller.
  *
- * Uses Response and view() facades exclusively — no raw Symfony Response imports needed.
+ * Uses Spinx\Http\Response and view() facade exclusively.
  */
 final class HealthController
 {
@@ -20,7 +19,7 @@ final class HealthController
      * Display the framework welcome screen.
      * GET /
      */
-    public function welcome(): SymfonyResponse
+    public function welcome(): Response
     {
         $spinxConfig = @json_decode((string) @file_get_contents(base_path('spinx.json')), true) ?? [];
         $driver      = $spinxConfig['driver']   ?? env('SPINX_DRIVER', 'roadrunner');
@@ -47,7 +46,7 @@ final class HealthController
      * API health check endpoint.
      * GET /health
      */
-    public function check(): SymfonyResponse
+    public function check(): Response
     {
         HealthCheckLog::create(['status' => 'ok']);
 

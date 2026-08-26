@@ -137,7 +137,7 @@ if (!function_exists('redirect')) {
     /**
      * Create a redirect HTTP response.
      */
-    function redirect(string $to, int $status = 302): \Symfony\Component\HttpFoundation\RedirectResponse
+    function redirect(string $to, int $status = 302): \Spinx\Http\RedirectResponse
     {
         return \Spinx\Http\Response::redirect($to, $status);
     }
@@ -161,7 +161,7 @@ if (!function_exists('response')) {
     /**
      * Create a response or get the Response factory.
      */
-    function response(mixed $content = '', int $status = 200, array $headers = []): \Symfony\Component\HttpFoundation\Response|\Spinx\Http\Response
+    function response(mixed $content = '', int $status = 200, array $headers = []): \Spinx\Http\Response
     {
         if (func_num_args() === 0) {
             return new \Spinx\Http\Response();
@@ -177,9 +177,9 @@ if (!function_exists('response')) {
 
 if (!function_exists('view')) {
     /**
-     * Render a template and return a Symfony Response.
+     * Render a template and return a Spinx Response.
      */
-    function view(string $template, array $data = [], int $status = 200, array $headers = []): \Symfony\Component\HttpFoundation\Response
+    function view(string $template, array $data = [], int $status = 200, array $headers = []): \Spinx\Http\Response
     {
         return \Spinx\Templating\View::render($template, $data, $status, $headers);
     }

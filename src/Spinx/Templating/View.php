@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Spinx\Templating;
 
-use Symfony\Component\HttpFoundation\Response;
+use Spinx\Http\Response;
 
 /**
  * Static facade for rendering Spinx templates.
