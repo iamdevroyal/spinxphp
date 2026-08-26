@@ -38,8 +38,8 @@ final class AiManager
         ?ContinuityTracker $continuity = null,
     ) {
         $this->client     = $client ?? new ClaudeClient();
-        $this->tools      = $tools ?? new ToolRegistry($this->projectRoot);
         $this->continuity = $continuity ?? new ContinuityTracker($this->projectRoot);
+        $this->tools      = $tools ?? new ToolRegistry($this->projectRoot, $this->continuity, fn(string $name) => $this->agent($name));
         $this->reasoning  = new ReasoningEngine($this->projectRoot, $this->client, $this->continuity);
         $this->registerDefaultAgents();
     }
@@ -71,7 +71,7 @@ final class AiManager
     {
         AiGuard::validatePrompt($prompt, $this->continuity);
 
-        $enhancedPrompt = "Please build the following feature/module end-to-end following Spinx strict DDD standards. Inspect existing frontend views and sibling modules to ensure 100% contract parity without stubs: {$prompt}";
+        $enhancedPrompt = "Please build the following feature/module end-to-end following Spinx strict DDD standards. You may delegate sub-tasks to specialized agents (architect, database, routing, frontend, security, devops) using delegate_to_agent. Always run verify_production_readiness at the end to ensure 100% production readiness: {$prompt}";
 
         return $this->agent('orchestrator')->handle($enhancedPrompt, [], $onStep);
     }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Spinx\Ai\Tools;
 
+use Spinx\Ai\Continuity\ContinuityTracker;
+
 /**
  * Registry holding tools available for Claude function calling.
  */
@@ -11,11 +13,18 @@ final class ToolRegistry
 {
     /** @var array<string, ToolInterface> */
     private array $tools = [];
+    private ContinuityTracker $continuity;
 
+    /**
+     * @param null|callable(string): \Spinx\Ai\Agents\AgentInterface $agentResolver
+     */
     public function __construct(
         private readonly string $projectRoot,
+        ?ContinuityTracker $continuity = null,
+        ?callable $agentResolver = null,
     ) {
-        $this->registerDefaultTools();
+        $this->continuity = $continuity ?? new ContinuityTracker($this->projectRoot);
+        $this->registerDefaultTools($agentResolver);
     }
 
     public function register(ToolInterface $tool): void
@@ -63,13 +72,22 @@ final class ToolRegistry
         }
 
         try {
-            return $tool->execute($arguments);
+            $res = $tool->execute($arguments);
+
+            // Automatically track file writes/edits in continuity memory
+            if ($name === 'write_file' && ($res['success'] ?? false) && isset($arguments['path'])) {
+                $this->continuity->recordFileChange('ai', (string) $arguments['path'], 'write');
+            } elseif ($name === 'edit_file' && ($res['success'] ?? false) && isset($arguments['path'])) {
+                $this->continuity->recordFileChange('ai', (string) $arguments['path'], 'edit');
+            }
+
+            return $res;
         } catch (\Throwable $e) {
             return ['error' => "Tool execution error: " . $e->getMessage()];
         }
     }
 
-    private function registerDefaultTools(): void
+    private function registerDefaultTools(?callable $agentResolver): void
     {
         $this->register(new ReadFileTool($this->projectRoot));
         $this->register(new WriteFileTool($this->projectRoot));
@@ -77,5 +95,10 @@ final class ToolRegistry
         $this->register(new ListDirectoryTool($this->projectRoot));
         $this->register(new SpinxCommandTool($this->projectRoot));
         $this->register(new CodeAnalyzerTool($this->projectRoot));
+        $this->register(new ProductionReadinessCheckTool($this->projectRoot, $this->continuity));
+
+        if ($agentResolver !== null) {
+            $this->register(new DelegateToAgentTool($agentResolver, $this->continuity));
+        }
     }
 }

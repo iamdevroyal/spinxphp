@@ -6,6 +6,7 @@ namespace Spinx\Ai\Continuity;
 
 /**
  * Manages persistent project memory and continuity tracking in `.spinx/ai/continuity.json`.
+ * Ensures context, decisions, contracts, and file histories are preserved across all agents.
  */
 final class ContinuityTracker
 {
@@ -33,7 +34,9 @@ final class ContinuityTracker
             'project_name' => basename($this->projectRoot),
             'modules'      => $this->detectExistingModules(),
             'decisions'    => [],
+            'contracts'    => [],
             'history'      => [],
+            'last_audit'   => null,
             'updated_at'   => date('Y-m-d H:i:s'),
         ];
     }
@@ -53,6 +56,7 @@ final class ContinuityTracker
 
     public function recordDecision(string $decision): void
     {
+        $this->load();
         $this->data['decisions'][] = [
             'date'     => date('Y-m-d H:i:s'),
             'decision' => $decision,
@@ -62,6 +66,7 @@ final class ContinuityTracker
 
     public function recordAction(string $agent, string $action, array $filesModified = []): void
     {
+        $this->load();
         $this->data['history'][] = [
             'timestamp' => date('Y-m-d H:i:s'),
             'agent'     => $agent,
@@ -71,11 +76,50 @@ final class ContinuityTracker
         $this->save();
     }
 
+    public function recordFileChange(string $agent, string $filePath, string $operation = 'write'): void
+    {
+        $this->load();
+        $this->data['history'][] = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'agent'     => $agent,
+            'action'    => "{$operation}: {$filePath}",
+            'files'     => [$filePath],
+        ];
+        $this->save();
+    }
+
+    public function recordContract(string $module, string $type, string $name, array $details = []): void
+    {
+        $this->load();
+        if (!isset($this->data['contracts'][$module])) {
+            $this->data['contracts'][$module] = [];
+        }
+
+        $this->data['contracts'][$module][] = [
+            'type'       => $type, // 'entity' | 'repository_interface' | 'service' | 'route' | 'view'
+            'name'       => $name,
+            'details'    => $details,
+            'registered' => date('Y-m-d H:i:s'),
+        ];
+        $this->save();
+    }
+
+    public function recordAudit(array $report): void
+    {
+        $this->load();
+        $this->data['last_audit'] = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'report'    => $report,
+        ];
+        $this->save();
+    }
+
     /**
-     * Formats project continuity context for injection into Claude system prompts.
+     * Formats comprehensive project continuity context for injection into agent system prompts.
      */
     public function getContextSummary(): string
     {
+        $this->load();
         $modules = implode(', ', $this->detectExistingModules());
         $decisions = '';
 
@@ -84,15 +128,38 @@ final class ContinuityTracker
             $decisions = "\n## Recent Project Decisions:\n" . implode("\n", array_map(fn($d) => "- {$d['decision']}", $decisionsList));
         }
 
+        $recentHistory = '';
+        if (!empty($this->data['history'])) {
+            $actions = array_slice($this->data['history'], -6);
+            $recentHistory = "\n## Recent Agent Actions:\n" . implode("\n", array_map(function($h) {
+                $files = !empty($h['files']) ? ' (' . implode(', ', $h['files']) . ')' : '';
+                return "- [{$h['agent']}] {$h['action']}{$files}";
+            }, $actions));
+        }
+
+        $knownContracts = '';
+        if (!empty($this->data['contracts'])) {
+            $contractsList = [];
+            foreach ($this->data['contracts'] as $mod => $items) {
+                foreach (array_slice($items, -4) as $item) {
+                    $contractsList[] = "- {$mod} {$item['type']}: {$item['name']}";
+                }
+            }
+            if (!empty($contractsList)) {
+                $knownContracts = "\n## Active Module Contracts:\n" . implode("\n", $contractsList);
+            }
+        }
+
         return <<<CTX
-## Active Project Context:
+## Active Project Continuity Context:
 - Project Directory: {$this->projectRoot}
-- Active Modules: {$modules}{$decisions}
+- Active Modules: {$modules}{$decisions}{$recentHistory}{$knownContracts}
 CTX;
     }
 
     public function getData(): array
     {
+        $this->load();
         return $this->data;
     }
 
