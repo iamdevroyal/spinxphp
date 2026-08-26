@@ -119,5 +119,10 @@ return static function (ContainerConfigurator $configurator): void {
     $services->set(\Spinx\Cache\Store\CacheStoreInterface::class)
         ->factory([service(\Spinx\Cache\CacheManager::class), 'store'])
         ->public();
+
+    // AI Framework Builder bindings
+    $services->set(\Spinx\Ai\AiManager::class)
+        ->args(['%spinx.project_root%'])
+        ->public();
 };
 

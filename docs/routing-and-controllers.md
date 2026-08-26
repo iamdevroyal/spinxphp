@@ -1,106 +1,156 @@
-# Routing, Controllers & Middleware
+# Routing & Controllers
 
-Routes are declared per-module in `app/Modules/<Name>/module.php` using Spinx's fluent `Route` DSL and string alias resolution.
+Spinx features a fluent routing DSL with **multi-action controller support** and built-in facades for Requests, Responses, and Views.
+
+---
+
+## 1. Multi-Action Controller Syntax
+
+Controllers can group multiple actions (`index`, `store`, `show`, `update`, `destroy`) in a single class:
 
 ```php
-use App\Modules\Orders\Infrastructure\Http\Controllers\OrderShowController;
-use Spinx\Auth\Middleware\AuthMiddleware;
-use Spinx\Http\Middleware\RateLimitMiddleware;
-use Spinx\Routing\{AliasRegistry, Route, RouteBuilder};
+// app/Modules/Todo/module.php
+use App\Modules\Todo\Infrastructure\Http\Controllers\TodoController;
+use Spinx\Routing\Route;
+use Spinx\Routing\RouteBuilder;
 
 return [
-    // Register controller aliases:
-    'controllers' => static function (AliasRegistry $r): void {
-        $r->registerController('order_show', OrderShowController::class);
+    'controllers' => static function ($r): void {
+        $r->registerController('todo', TodoController::class);
     },
 
-    // Register middleware aliases:
-    'middlewares' => static function (AliasRegistry $r): void {
-        $r->registerMiddleware('auth',       AuthMiddleware::class);
-        $r->registerMiddleware('rate_limit', RateLimitMiddleware::class);
-    },
-
-    // Declare routes using fluent DSL:
     'routes' => static function (RouteBuilder $routes): void {
-        Route::get(['orders.show', '/orders/{id}'])
-            ->middleware(['auth', 'rate_limit'])
-            ->controller('order_show');
+        Route::get(['todo.index', '/todos'])
+            ->middleware(['csrf'])
+            ->controller('todo@index');
+
+        Route::post(['todo.create', '/todos'])
+            ->middleware(['csrf'])
+            ->controller('todo@store');
+
+        Route::post(['todo.toggle', '/todos/{id}/toggle'])
+            ->middleware(['csrf'])
+            ->controller('todo@toggle');
     },
 ];
 ```
 
-## Fluent Route DSL
-
-Spinx provides intuitive HTTP method shorthands:
-
+You can also reference controller class methods directly via array syntax:
 ```php
-Route::get(['route.name', '/path'])->controller('alias');
-Route::post(['route.name', '/path'])->controller('alias');
-Route::put(['route.name', '/path'])->controller('alias');
-Route::patch(['route.name', '/path'])->controller('alias');
-Route::delete(['route.name', '/path'])->controller('alias');
+Route::get('/login')->controller([AuthController::class, 'showLogin']);
 ```
 
-### Route Groups & Prefixes
-Nest routes with shared prefixes:
+---
+
+## 2. Controller Implementation & Facades
+
+Spinx controllers strictly handle HTTP extraction, validation, calling Application Services, and returning Responses:
 
 ```php
-Route::group('/api/v1', function (RouteBuilder $group): void {
-    Route::get(['users.index', '/users'])->controller('user_list');
-    Route::get(['users.show', '/users/{id}'])->controller('user_show');
-});
-```
+namespace App\Modules\Todo\Infrastructure\Http\Controllers;
 
-## Controllers
+use App\Modules\Todo\Application\Services\TodoService;
+use Spinx\Http\Request;
+use Spinx\Http\Response;
 
-Controllers are invokable classes (`__invoke(Request): Response`). All controllers registered via `$r->registerController()` are automatically wired into the Symfony DI container with autowiring enabled:
-
-```php
-namespace App\Modules\Orders\Infrastructure\Http\Controllers;
-
-use Symfony\Component\HttpFoundation\{Request, Response, JsonResponse};
-use App\Modules\Orders\Application\Services\OrderService;
-
-final class OrderShowController
+final class TodoController
 {
     public function __construct(
-        private readonly OrderService $orders,
+        private readonly TodoService $todoService,
     ) {}
 
-    public function __invoke(Request $request, string $id): Response
+    public function index(): Response
     {
-        $order = $this->orders->find($id);
+        $todos = $this->todoService->listTodos();
 
-        return new JsonResponse(['order' => $order]);
+        return view('Todo::index', [
+            'title' => 'Todos',
+            'todos' => $todos,
+        ]);
+    }
+
+    public function store(): Response
+    {
+        $data = Request::validate([
+            'title' => 'required|string|min:1|max:255',
+        ]);
+
+        $this->todoService->createTodo($data['title']);
+
+        return redirect('/todos');
     }
 }
 ```
 
-Path parameters (`{id}` above) are passed to `__invoke()` as positional arguments following the `Request` object.
+---
 
-## Middleware
+## 3. The `Request` Facade
 
-Middlewares wrap requests in onion-order. Register aliases in `module.php`'s `middlewares` closure:
-
-```bash
-php spinx make:middleware Orders RateLimit
-```
+Access request data statically without boilerplate:
 
 ```php
-namespace App\Modules\Orders\Infrastructure\Http\Middleware;
+use Spinx\Http\Request;
 
-use Symfony\Component\HttpFoundation\{Request, Response};
+$all     = Request::all();
+$email   = Request::input('email');
+$only    = Request::only(['name', 'email']);
+$except  = Request::except(['password']);
+$ip      = Request::ip();
+$method  = Request::method();
+$isPost  = Request::isMethod('POST');
+$isAjax  = Request::ajax();
+$wantsJson = Request::wantsJson();
+$file    = Request::file('avatar');
+$user    = Request::user();
 
-final class RateLimitMiddleware
-{
-    public function process(Request $request, \Closure $next): Response
-    {
-        // Pre-controller inspection
-        $response = $next($request);
-        // Post-controller headers
-        $response->headers->set('X-RateLimit-Remaining', '99');
+// Inline Validation
+$data = Request::validate([
+    'email'    => 'required|email|max:255',
+    'password' => 'required|string|min:8',
+]);
+```
 
-        return $response;
-    }
-}
+---
+
+## 4. The `Response` & `JsonResponse` Facade
+
+`Spinx\Http\Response` serves as both the factory and return type:
+
+```php
+use Spinx\Http\Response;
+use Spinx\Http\JsonResponse;
+
+// JSON APIs
+return Response::json(['data' => $items], 200);
+return Response::jsonSuccess(['id' => 123]);
+return Response::jsonError('Could not process order', 400);
+
+// API Status Envelopes
+return JsonResponse::validationError($errors); // 422
+return JsonResponse::notFound('Item not found'); // 404
+return JsonResponse::unauthorized();          // 401
+return JsonResponse::forbidden();             // 403
+
+// HTML & Redirects
+return Response::html('<h1>Success</h1>');
+return Response::redirect('/dashboard');
+return redirect('/dashboard');
+return Response::noContent();
+```
+
+---
+
+## 5. The `View` Facade & `view()` Helper
+
+Render templates and return complete HTTP responses:
+
+```php
+// Shorthand helper returning Spinx\Http\Response
+return view('Auth::login', [
+    'title' => 'Sign In',
+    'errors' => [],
+]);
+
+// View facade for raw HTML string
+$html = \Spinx\Templating\View::make('emails.welcome', ['name' => 'Alice']);
 ```

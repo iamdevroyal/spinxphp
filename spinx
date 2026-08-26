@@ -144,6 +144,19 @@ switch ($command) {
         optimizeCommand($projectRoot);
         break;
 
+    case 'ai:chat':
+        aiChatCommand($projectRoot);
+        break;
+
+    case 'ai:build':
+        aiBuildCommand($projectRoot, $argv[2] ?? null, array_slice($argv, 3));
+        break;
+
+    case 'ai:ui':
+    case 'ai:dashboard':
+        aiUiCommand($projectRoot);
+        break;
+
     case null:
     case 'help':
     case '--help':
@@ -1296,6 +1309,104 @@ function optimizeCommand(string $projectRoot): void
     fwrite(STDOUT, "\n\033[32m✔ Configuration, schema, and dependency container cached successfully!\033[0m\n");
 }
 
+function aiChatCommand(string $projectRoot): void
+{
+    require_once $projectRoot . '/vendor/autoload.php';
+
+    fwrite(STDOUT, "\n\033[1;35m╭─────────────────────────────────────────────────────────────╮\033[0m\n");
+    fwrite(STDOUT, "\033[1;35m│           🤖 Spinx AI Framework Builder (Claude 4.6)        │\033[0m\n");
+    fwrite(STDOUT, "\033[1;35m│   Strict DDD Architecture • Multi-Agent • Continuity Memory │\033[0m\n");
+    fwrite(STDOUT, "\033[1;35m╰─────────────────────────────────────────────────────────────╯\033[0m\n\n");
+
+    $apiKey = getenv('ANTHROPIC_API_KEY') ?: (\Spinx\Support\Config::get('ai.providers.anthropic.api_key', ''));
+    if (empty($apiKey)) {
+        fwrite(STDERR, "\033[31m[Spinx AI Error]\033[0m ANTHROPIC_API_KEY is not set.\n");
+        fwrite(STDERR, "Add ANTHROPIC_API_KEY=your_key_here to your .env file or config/ai.php\n\n");
+        return;
+    }
+
+    $ai = new \Spinx\Ai\AiManager($projectRoot);
+    $history = [];
+
+    fwrite(STDOUT, "\033[36mType your message below. Type 'exit' or 'quit' to end session.\033[0m\n\n");
+
+    while (true) {
+        fwrite(STDOUT, "\033[1;32mYou > \033[0m");
+        $input = trim((string) fgets(STDIN));
+
+        if ($input === 'exit' || $input === 'quit' || $input === '') {
+            break;
+        }
+
+        fwrite(STDOUT, "\n\033[35m[Orchestrator thinking...]\033[0m\n");
+
+        try {
+            $result = $ai->chat($input, $history, function(string $type, string $message, string $agent) {
+                if ($type === 'tool_call') {
+                    fwrite(STDOUT, "  \033[33m⚡ [{$agent}]\033[0m {$message}\n");
+                }
+            });
+
+            $history = $result['messages'];
+            fwrite(STDOUT, "\n\033[1;35m🤖 Spinx AI:\033[0m\n" . $result['response'] . "\n\n");
+        } catch (\Throwable $e) {
+            fwrite(STDERR, "\n\033[31m[Error]\033[0m " . $e->getMessage() . "\n\n");
+        }
+    }
+}
+
+function aiBuildCommand(string $projectRoot, ?string $prompt, array $extraArgs = []): void
+{
+    require_once $projectRoot . '/vendor/autoload.php';
+
+    if ($prompt === null || trim($prompt) === '') {
+        fwrite(STDERR, "[Spinx AI] Usage: spinx ai:build \"<prompt describing module or feature>\"\n");
+        fwrite(STDERR, "Example: spinx ai:build \"Create a Billing module with Subscription entities, Stripe webhooks, and checkout views\"\n");
+        return;
+    }
+
+    $fullPrompt = trim($prompt . ' ' . implode(' ', $extraArgs));
+
+    fwrite(STDOUT, "\n\033[1;35m[Spinx AI Builder]\033[0m Initiating Autonomous Build...\n");
+    fwrite(STDOUT, "Prompt: \033[36m\"{$fullPrompt}\"\033[0m\n\n");
+
+    $apiKey = getenv('ANTHROPIC_API_KEY') ?: (\Spinx\Support\Config::get('ai.providers.anthropic.api_key', ''));
+    if (empty($apiKey)) {
+        fwrite(STDERR, "\033[31m[Spinx AI Error]\033[0m ANTHROPIC_API_KEY is not set.\n");
+        fwrite(STDERR, "Add ANTHROPIC_API_KEY=your_key_here to your .env file or config/ai.php\n\n");
+        return;
+    }
+
+    $ai = new \Spinx\Ai\AiManager($projectRoot);
+
+    try {
+        $result = $ai->build($fullPrompt, function(string $type, string $message, string $agent) {
+            if ($type === 'tool_call') {
+                fwrite(STDOUT, "  \033[33m⚡ [{$agent}]\033[0m {$message}\n");
+            }
+        });
+
+        fwrite(STDOUT, "\n\033[32m✔ Build Completed Successfully!\033[0m\n\n");
+        fwrite(STDOUT, $result['response'] . "\n\n");
+    } catch (\Throwable $e) {
+        fwrite(STDERR, "\n\033[31m[Build Error]\033[0m " . $e->getMessage() . "\n\n");
+    }
+}
+
+function aiUiCommand(string $projectRoot): void
+{
+    $url = 'http://localhost:8080/_spinx/ai';
+    fwrite(STDOUT, "\033[1;35m[Spinx AI]\033[0m Opening AI Builder Web Dashboard at \033[4;36m{$url}\033[0m\n");
+
+    if (PHP_OS_FAMILY === 'Windows') {
+        pclose(popen("start {$url}", 'r'));
+    } elseif (PHP_OS_FAMILY === 'Darwin') {
+        pclose(popen("open {$url}", 'r'));
+    } else {
+        pclose(popen("xdg-open {$url} 2>/dev/null", 'r'));
+    }
+}
+
 function printHelp(): void
 {
     fwrite(STDOUT, <<<HELP
@@ -1305,6 +1416,9 @@ function printHelp(): void
       spinx new <project> [--frontend=vue|react]  Scaffold a brand new Spinx project
       spinx serve                        Boot the server (RoadRunner or Swoole, per spinx.json "driver") + Vite dev server
       spinx driver:swap <driver>         Switch runtime driver: roadrunner | swoole
+      spinx ai:chat                      Launch conversational AI terminal builder (Claude Sonnet 4.6)
+      spinx ai:build "<prompt>"          Autonomous one-shot module generator with strict DDD enforcement
+      spinx ai:ui                        Open local AI Builder Web Dashboard in browser
       spinx make:module <Name> [--all] [--except=x,y]  Scaffold a DDD module, optionally with entity/model/repository/service/controller/migration
       spinx make:controller <Mod> <Name> Generate a controller in Infrastructure/Http/Controllers
       spinx make:entity <Mod> <Name>     Generate a Domain entity (no persistence awareness)

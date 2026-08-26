@@ -24,7 +24,7 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
  */
 final class Kernel
 {
-    public const VERSION = '1.0.16';
+    public const VERSION = '1.0.17';
 
     private ContainerInterface $container;
     private RouteCollection $routes;
@@ -93,6 +93,11 @@ final class Kernel
         // Boot Cache subsystem
         if ($this->container->has(\Spinx\Cache\CacheManager::class)) {
             \Spinx\Cache\Cache::setManager($this->container->get(\Spinx\Cache\CacheManager::class));
+        }
+
+        // Boot AI Framework Builder
+        if ($this->container->has(\Spinx\Ai\AiManager::class)) {
+            \Spinx\Ai\Ai::setManager($this->container->get(\Spinx\Ai\AiManager::class));
         }
 
         $this->routes = $this->compileRoutes();
@@ -258,6 +263,19 @@ final class Kernel
     {
         $routes = new RouteCollection();
         (new ModuleLoader($this->projectRoot))->loadRoutes($routes);
+
+        // Built-in System Routes: Spinx AI Builder Web Dashboard
+        $routes->add('__spinx_ai_dashboard', new \Symfony\Component\Routing\Route('/_spinx/ai', [
+            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'index'],
+        ], [], [], '', [], ['GET']));
+
+        $routes->add('__spinx_ai_build', new \Symfony\Component\Routing\Route('/_spinx/ai/build', [
+            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'build'],
+        ], [], [], '', [], ['POST']));
+
+        $routes->add('__spinx_ai_context', new \Symfony\Component\Routing\Route('/_spinx/ai/context', [
+            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'context'],
+        ], [], [], '', [], ['GET']));
 
         return $routes;
     }

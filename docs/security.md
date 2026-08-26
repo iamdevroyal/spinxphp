@@ -1,91 +1,74 @@
-# Security
+# Security & Session-Backed CSRF
 
-None of the middleware below is attached globally by default — attach
-it per-route or per-module via a route's `_middleware` default (see
-[routing-and-controllers.md](routing-and-controllers.md#middleware)).
-An app with no forms has no reason to pay CSRF's cost; a pure
-server-to-server API has no reason to pay CORS preflight handling. The
-`Health` and `Todo` modules are live, working reference examples for
-all four — read their `module.php` files alongside this doc.
+Spinx delivers persistent-worker-safe security subsystems including **session-backed CSRF protection with token rotation**, session fixation defense, and auth middleware guards.
 
-## XSS — already on by default, not something you attach
+---
 
-Every `{{ $expr }}` in a `.spinx.html` template is `htmlspecialchars()`-escaped
-automatically by the directive compiler — this isn't middleware, it's
-built into how templates compile, so there's nothing to remember to turn
-on. Use `{!! $expr !!}` only for content you've deliberately decided is
-safe raw HTML (and never for anything derived from user input).
+## 1. Session-Backed CSRF Protection
 
-## CSRF — `Spinx\Http\Middleware\CsrfMiddleware`
+Spinx CSRF protection is tied directly to the user's active session (`SessionInterface` under `_token`):
 
-Double-submit-cookie pattern. A token is set as a cookie and echoed into
-forms via `@csrf`; a POST/PUT/PATCH/DELETE is only accepted if the
-submitted token matches the cookie.
+1. **Generation:** When a session begins or regenerates, a cryptographically secure 64-character hex token is assigned.
+2. **Verification:** On state-changing HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`), `CsrfMiddleware` checks the submitted token against the session token.
+3. **Cookie Synchronization:** On every response, `CsrfMiddleware` synchronizes the active token to a readable `XSRF-TOKEN` cookie, allowing frontend JavaScript clients (axios/fetch/Vue/React) to read and send it automatically in headers (`X-CSRF-TOKEN` or `X-XSRF-TOKEN`).
 
-```php
-'_middleware' => [CsrfMiddleware::class],
-```
+---
+
+## 2. Using `@csrf` in Templates
+
+Include the `@csrf` directive in every HTML form:
+
 ```html
 <form method="POST" action="/todos">
     @csrf
-    <input type="text" name="title">
+    <input type="text" name="title" placeholder="New todo item" required />
+    <button type="submit">Create Todo</button>
 </form>
 ```
 
-Attach it to the **GET route too**, not just the form-submitting POST —
-the cookie has to be set on some response before there's a token to
-submit back. See `Todo`'s `module.php` for the working three-route
-example.
-
-## CORS — `Spinx\Http\Middleware\CorsMiddleware`
-
-Config-driven via `config/cors.php` / `.env`:
-```
-CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
-CORS_ALLOW_CREDENTIALS=false
+This compiles to:
+```html
+<input type="hidden" name="_token" value="4f8a9e7d..." />
 ```
 
-Reflects the request's actual `Origin` back rather than literally
-sending `*` when credentials are allowed — the CORS spec forbids
-combining a wildcard origin with credentialed requests, and browsers
-enforce this by rejecting the response outright, so this handles it
-correctly rather than silently sending a header that won't work.
+---
 
-## Rate limiting — `Spinx\Http\Middleware\RateLimitMiddleware`
+## 3. Token Rotation on Authentication
 
-Config-driven via `config/rate_limit.php` / `.env`:
+To prevent session fixation and CSRF hijacking, regenerate the token during login and logout:
+
+```php
+use Spinx\Security\Csrf;
+
+// Regenerate upon login:
+Csrf::regenerateToken($session);
 ```
-RATE_LIMIT_MAX_ATTEMPTS=60
-RATE_LIMIT_DECAY_SECONDS=60
+
+---
+
+## 4. Auth & Guest Middleware Guards
+
+Spinx includes built-in middleware for guarding routes:
+
+```php
+// app/Modules/Auth/module.php
+return [
+    'middlewares' => static function ($r): void {
+        $r->registerMiddleware('auth', \Spinx\Auth\Middleware\AuthMiddleware::class);
+        $r->registerMiddleware('guest', \Spinx\Auth\Middleware\GuestMiddleware::class);
+        $r->registerMiddleware('csrf', \Spinx\Http\Middleware\CsrfMiddleware::class);
+    },
+
+    'routes' => static function (RouteBuilder $routes): void {
+        // Authenticated users only
+        Route::get(['auth.dashboard', '/dashboard'])
+            ->middleware(['auth', 'csrf'])
+            ->controller('auth@dashboard');
+
+        // Unauthenticated guests only
+        Route::get(['auth.login', '/login'])
+            ->middleware(['guest', 'csrf'])
+            ->controller('auth@showLogin');
+    },
+];
 ```
-
-**Read before relying on this in production:** the default store
-(`InMemoryRateLimitStore`) only tracks attempts within a single worker
-process. RoadRunner and Swoole both run a *pool* of workers — this
-store's counts aren't shared across them, so the effective limit is
-closer to `(configured limit × worker count)` than the number you set.
-Correct for single-worker dev setups or genuinely low traffic; for real
-production traffic, implement `Spinx\Http\RateLimit\RateLimitStore`
-against Redis (or similar) and register it in `config/container.php` in
-place of the default — same interface, one swap.
-
-## Security headers — `SecurityHeadersMiddleware` (per-module, not a framework class)
-
-The `Health` module's `SecurityHeadersMiddleware` (in its own
-`Infrastructure/Http/Middleware/`) is a template for the security
-headers pattern, not a framework-provided class — copy it into your own
-module and adjust for your needs (`X-Content-Type-Options`,
-`X-Frame-Options`, `Content-Security-Policy`, etc. — what's appropriate
-varies enough by app that this stays a documented pattern rather than a
-one-size-fits-all default).
-
-## Everything else
-
-- **SQL injection**: every `QueryBuilder` method binds parameters, never
-  interpolates raw values into SQL strings — this isn't opt-in.
-- **Mass-assignment**: `Model::$fillable` guards `fill()`/`create()`
-  by default — anything not listed is silently dropped, mirroring
-  Eloquent's guarded-by-default behavior.
-- **Password hashing**: use `Spinx\Auth\Hash` — the built-in bcrypt
-  helper (see [auth.md](auth.md#password-hashing)). `Hash::make()`,
-  `Hash::check()`, and `Hash::needsRehash()` cover all production use cases.

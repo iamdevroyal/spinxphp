@@ -1,0 +1,20 @@
+{
+    "project_name": "framework",
+    "modules": [
+        "Auth",
+        "Health",
+        "Todo"
+    ],
+    "decisions": [
+        {
+            "date": "2026-08-26 11:36:23",
+            "decision": "Standardized on Claude Sonnet 4.6 for AI Builder"
+        },
+        {
+            "date": "2026-08-26 11:37:12",
+            "decision": "Standardized on Claude Sonnet 4.6 for AI Builder"
+        }
+    ],
+    "history": [],
+    "updated_at": "2026-08-26 11:37:12"
+}

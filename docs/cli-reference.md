@@ -1,56 +1,59 @@
-# CLI Reference
+# Spinx CLI Reference
 
-## New Project
+The `spinx` binary provides a complete suite of commands for project scaffolding, runtime booting, migrations, caching, optimization, and autonomous AI building.
 
-| Command | Description |
-|---|---|
-| `spinx new <project> [--frontend=vue\|react]` | Scaffold a brand new Spinx project |
+---
 
-## Project & Modules
+## 1. Development & Runtime Commands
 
 | Command | Description |
 |---|---|
-| `spinx make:module <Name> [--all] [--except=x,y]` | Scaffold a DDD module — `--all` also generates entity/model/repository/service/controller/migration |
-| `spinx make:controller <Module> <Name>` | Controller in `Infrastructure/Http/Controllers` |
-| `spinx make:entity <Module> <Name>` | Domain entity (no persistence awareness) |
-| `spinx make:service <Module> <Name>` | Application service |
-| `spinx make:repository <Module> <Name>` | Domain interface + Infrastructure implementation |
-| `spinx make:model <Module> <Name>` | ORM model in `Infrastructure/Persistence/Models` |
-| `spinx make:middleware <Module> <Name>` | Middleware class in `Infrastructure/Http/Middleware` |
-| `spinx make:migration <Module> <desc>` | Timestamp-prefixed migration file |
-| `spinx make:mail <Module> <Name>` | Mailable + view + queueable Job |
+| `spinx new <project>` | Scaffold a brand new Spinx project with Vue or React |
+| `spinx serve` | Boot the persistent server (RoadRunner/Swoole) + Vite dev server |
+| `spinx driver:swap <driver>` | Switch runtime driver between `roadrunner` and `swoole` |
+| `spinx preview --mobile` | Open dev server in responsive mobile device preview |
+| `spinx preview --desktop` | Open dev server in native desktop webview window |
+| `spinx logs [--lines=N]` | View recent application logs with colored trace formatting |
+| `spinx log:clear` | Clear all log files in `storage/logs/` |
 
-## Database, Queues, Scheduler & Schema
+---
 
-| Command | Description |
-|---|---|
-| `spinx migrate [Name]` | Run pending migrations (all modules, or one if named) |
-| `spinx module:migrate <Name>` | Run pending migrations for one module |
-| `spinx schema:compile` | Introspect database schema and write pre-compiled `storage/cache/schema_columns.php` |
-| `spinx queue:work` | Poll and process the DB-backed job queue |
-| `spinx schedule:run` | Run all tasks in `schedule.php` that are due right now (invoke every minute via OS cron) |
-
-## API & OpenAPI
+## 2. Inbuilt AI Framework Builder Commands
 
 | Command | Description |
 |---|---|
-| `spinx openapi:generate [--output=path]` | Generate OpenAPI 3.1 schema from routes and controller attributes |
+| `spinx ai:chat` | Launch interactive terminal AI pair programmer (Claude Sonnet 4.6) |
+| `spinx ai:build "<prompt>"` | Autonomous one-shot module generator with strict DDD enforcement |
+| `spinx ai:ui` | Open local Web AI Builder Dashboard at `http://localhost:8080/_spinx/ai` |
 
-## Serving & Building
+---
 
-| Command | Description |
-|---|---|
-| `spinx serve` | Boot the active driver (RoadRunner or Swoole) + Vite dev server (HMR) |
-| `spinx build` | Production build: compiled frontend assets + primed backend cache |
-| `spinx driver:swap <roadrunner\|swoole>` | Switch the active runtime driver |
-
-## Preview & Mobile
+## 3. Cache & Optimization Commands
 
 | Command | Description |
 |---|---|
-| `spinx preview --mobile` | Open dev server in interactive browser-based mobile preview container |
-| `spinx preview --android` | Open dev server on a running/booted Android device or emulator |
-| `spinx preview --ios` | Open dev server on the iOS Simulator (macOS + Xcode only) |
-| `spinx preview --desktop` | Open dev server in a native desktop webview window |
-| `spinx build:mobile --android` | Scaffold a native Android shell in `mobile/android/` |
-| `spinx build:mobile --ios` | Scaffold a native iOS shell in `mobile/ios/` |
+| `spinx optimize` | Pre-compile DI container, DBAL schema cache, and warm production cache |
+| `spinx optimize:clear` | Clear all cached bootstrap files, schema, views, and application data |
+| `spinx cache:clear` | Clear application data cache (`storage/cache/data/`) |
+| `spinx cache:forget <key>` | Remove a specific key from application data cache |
+| `spinx view:clear` | Clear compiled Blade view templates (`storage/cache/views/`) |
+| `spinx container:clear` | Clear compiled DI container cache (`storage/cache/container.php*`) |
+| `spinx schema:clear` | Clear compiled DBAL schema cache (`storage/cache/schema_columns.php`) |
+
+---
+
+## 4. Scaffolding & Database Commands
+
+| Command | Description |
+|---|---|
+| `spinx make:module <Name> [--all]` | Scaffold a DDD module directory with domain/app/infra |
+| `spinx make:controller <Mod> <Name>` | Generate a multi-action controller in module |
+| `spinx make:entity <Mod> <Name>` | Generate a pure Domain entity |
+| `spinx make:service <Mod> <Name>` | Generate an Application service |
+| `spinx make:repository <Mod> <Name>` | Generate a repository interface + implementation pair |
+| `spinx make:migration <Mod> <desc>` | Generate a timestamp-prefixed migration file |
+| `spinx migrate [Name]` | Run pending database migrations |
+| `spinx schema:compile` | Introspect database schema and write `storage/cache/schema_columns.php` |
+| `spinx queue:work` | Poll and process the database-backed job queue |
+| `spinx schedule:run` | Run scheduled tasks due in `schedule.php` |
+| `spinx openapi:generate` | Generate OpenAPI 3.1 schema from routes and controller attributes |
