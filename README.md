@@ -18,7 +18,7 @@
 
 Traditional PHP frameworks run on PHP-FPM, destroying and recreating the application lifecycle on every incoming HTTP request. Spinx runs inside **long-lived persistent execution workers** (RoadRunner by default, Swoole coroutines opt-in). Route compilation, dependency injection reflection, configuration parsing, and database schemas remain warmed in RAM across requests — delivering **sub-millisecond response latencies and handling thousands of requests per second per node**.
 
-Spinx pairs extreme execution speed with **Kernel-Enforced Domain-Driven Design (DDD)**, an autonomous **9-Agent AI Builder**, and full native support for **Asynchronous Queues**, **Real-Time WebSockets**, **Multi-Disk Cloud Storage**, and **Semantic Vector Search (`pgvector`)**.
+Spinx pairs extreme execution speed with **Kernel-Enforced Domain-Driven Design (DDD)**, an autonomous **AI Projects Builder**, and full native support for **Asynchronous Queues**, **Real-Time WebSockets**, **Multi-Disk Cloud Storage**, and **Semantic Vector Search (`pgvector`)**.
 
 ---
 
@@ -43,9 +43,42 @@ Spinx pairs extreme execution speed with **Kernel-Enforced Domain-Driven Design 
 
 ## 📦 Installation & Quickstart
 
-Spinx ships as a Composer package. Once installed, all projects are scaffolded and managed through the local `spinx` CLI script.
+### Recommended — Global Installer
 
-### Step 1 — Install Spinx via Composer
+Install the official Spinx installer globally once:
+
+```bash
+composer global require spinx/installer
+```
+
+Then create new projects from anywhere:
+
+```bash
+spinx new my-app
+```
+
+An interactive wizard configures your frontend, database, runtime, and URL. When done:
+
+```bash
+cd my-app
+php spinx serve
+```
+
+**Options:**
+
+```bash
+spinx new my-app --frontend=vue              # Vue 3 + Vite (default)
+spinx new my-app --frontend=react            # React 19 + Vite
+spinx new my-app --frontend=none             # API-only (no frontend)
+spinx new my-app --version=1.0.0             # Specific framework version
+spinx new my-app --frontend=vue -n           # Non-interactive (CI/CD)
+```
+
+---
+
+### Alternative — Direct Composer Install
+
+Without the global installer, use `composer create-project` directly:
 
 ```bash
 composer create-project spinx/spinx my-spinx --stability=dev

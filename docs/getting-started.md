@@ -1,8 +1,47 @@
 # Getting Started
 
-## Quickstart (Interactive Installer via Composer)
+## Quickstart (Recommended — Global Installer)
 
-The recommended way to start a new Spinx project is via Composer:
+Install the Spinx global installer once:
+
+```bash
+composer global require spinx/installer
+```
+
+Then create any new project from anywhere:
+
+```bash
+spinx new my-app
+```
+
+An interactive wizard guides you through frontend, database, and runtime selection. Once complete:
+
+```bash
+cd my-app
+php spinx serve
+```
+
+Visit `http://localhost:8080`.
+
+**Frontend presets:**
+
+```bash
+spinx new my-app --frontend=vue     # Vue 3 + Vite (default)
+spinx new my-app --frontend=react   # React 19 + Vite
+spinx new my-app --frontend=none    # No frontend (API only)
+```
+
+**Non-interactive (CI/CD):**
+
+```bash
+spinx new my-app --frontend=vue --no-interaction
+```
+
+---
+
+## Alternative: Direct Composer Install
+
+You can also create a project without the global installer:
 
 ```bash
 composer create-project spinxphp/framework my-app

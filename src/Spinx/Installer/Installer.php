@@ -22,6 +22,17 @@ final class Installer
     /** @var object|null Composer\IO\IOInterface */
     private ?object $io;
 
+    /**
+     * True when the global `spinx/installer` (or any caller) sets:
+     *   SPINX_NO_INTERACTION=true
+     *
+     * In this mode all interactive STDIN prompts are skipped; the wizard
+     * uses env values (SPINX_FRONTEND, SPINX_DB_DRIVER, SPINX_RUNTIME,
+     * SPINX_APP_URL) or sensible defaults, so CI/CD pipelines and the
+     * global installer's --no-interaction flag work without modification.
+     */
+    private bool $nonInteractive;
+
     public function __construct(
         private readonly string $projectRoot,
         ?object $io = null,
@@ -30,6 +41,7 @@ final class Installer
         $this->ansi = !isset($_SERVER['NO_COLOR'])
             && function_exists('posix_isatty')
             && @posix_isatty(STDOUT);
+        $this->nonInteractive = strtolower((string) (getenv('SPINX_NO_INTERACTION') ?: '')) === 'true';
     }
 
     public static function postCreateProject(?object $event = null): void
@@ -59,45 +71,70 @@ final class Installer
 
         // ── 1. App Name ─────────────────────────────────────────────────
         $defaultAppName = ucfirst(basename($this->projectRoot));
-        $appName = $this->ask(
-            question: 'What is the name of your application?',
-            default: $defaultAppName,
-        );
+        $appName = $this->nonInteractive
+            ? $defaultAppName
+            : $this->ask(
+                question: 'What is the name of your application?',
+                default: $defaultAppName,
+            );
 
         // ── 2. Frontend ──────────────────────────────────────────────────
-        $frontend = $this->choice(
-            question: 'Which frontend adapter would you like to use?',
-            choices:  ['Vue 3 (default)', 'React 19'],
-            default:  0,
-        );
-        $frontendKey = $frontend === 0 ? 'vue' : 'react';
+        // SPINX_FRONTEND env: 'vue' | 'react' | 'none'
+        // Passed by the global installer (spinx/installer) when the user
+        // runs: spinx new my-app --frontend=vue --no-interaction
+        $envFrontend = strtolower(trim((string) (getenv('SPINX_FRONTEND') ?: '')));
+
+        if ($this->nonInteractive) {
+            $frontendKey = in_array($envFrontend, ['vue', 'react', 'none'], true)
+                ? $envFrontend
+                : 'vue'; // Default: Vue 3
+        } else {
+            $frontend = $this->choice(
+                question: 'Which frontend adapter would you like to use?',
+                choices:  ['Vue 3 (default)', 'React 19'],
+                default:  0,
+            );
+            $frontendKey = $frontend === 0 ? 'vue' : 'react';
+        }
 
         // ── 3. Database Driver ───────────────────────────────────────────
-        $dbChoice = $this->choice(
-            question: 'Which database driver would you like to use?',
-            choices:  ['SQLite — zero-config, perfect for local dev (default)', 'MySQL', 'PostgreSQL'],
-            default:  0,
-        );
-        $dbConfig = match ($dbChoice) {
-            1 => $this->askDatabaseCredentials('MySQL', '3306'),
-            2 => $this->askDatabaseCredentials('PostgreSQL', '5432'),
-            default => ['driver' => 'pdo_sqlite', 'host' => '', 'port' => '', 'database' => '', 'username' => '', 'password' => ''],
-        };
+        if ($this->nonInteractive) {
+            // Non-interactive default: SQLite (zero-config, no credentials needed)
+            $dbConfig = ['driver' => 'pdo_sqlite', 'host' => '', 'port' => '', 'database' => '', 'username' => '', 'password' => ''];
+        } else {
+            $dbChoice = $this->choice(
+                question: 'Which database driver would you like to use?',
+                choices:  ['SQLite — zero-config, perfect for local dev (default)', 'MySQL', 'PostgreSQL'],
+                default:  0,
+            );
+            $dbConfig = match ($dbChoice) {
+                1 => $this->askDatabaseCredentials('MySQL', '3306'),
+                2 => $this->askDatabaseCredentials('PostgreSQL', '5432'),
+                default => ['driver' => 'pdo_sqlite', 'host' => '', 'port' => '', 'database' => '', 'username' => '', 'password' => ''],
+            };
+        }
 
-        // ── 4. Runtime Driver ────────────────────────────────────
-        $runtimeChoice = $this->choice(
-            question: 'Which runtime driver would you like to use?',
-            choices:  ['RoadRunner (recommended — works on Windows/Linux/macOS)', 'Swoole (Linux/Docker only)'],
-            default:  0,
-        );
-        $runtimeDriver = $runtimeChoice === 0 ? 'roadrunner' : 'swoole';
+        // ── 4. Runtime Driver ────────────────────────────────────────────
+        if ($this->nonInteractive) {
+            $runtimeDriver = 'roadrunner'; // Default: RoadRunner (works everywhere)
+        } else {
+            $runtimeChoice = $this->choice(
+                question: 'Which runtime driver would you like to use?',
+                choices:  ['RoadRunner (recommended — works on Windows/Linux/macOS)', 'Swoole (Linux/Docker only)'],
+                default:  0,
+            );
+            $runtimeDriver = $runtimeChoice === 0 ? 'roadrunner' : 'swoole';
+        }
 
         // ── 5. App URL ───────────────────────────────────────────────────
         $defaultPort = $runtimeDriver === 'swoole' ? '9501' : '8080';
-        $appUrl = $this->ask(
-            question: 'What is your application URL?',
-            default: "http://localhost:{$defaultPort}",
-        );
+        $defaultUrl  = "http://localhost:{$defaultPort}";
+        $appUrl = $this->nonInteractive
+            ? $defaultUrl
+            : $this->ask(
+                question: 'What is your application URL?',
+                default: $defaultUrl,
+            );
 
         // ── Write .env ───────────────────────────────────────────────────
         $this->newLine();
@@ -124,10 +161,12 @@ final class Installer
 
         // ── Run Migrations ───────────────────────────────────────────────
         $this->newLine();
-        $runMigrations = $this->confirm(
-            question: 'Run database migrations now?',
-            default: true,
-        );
+        $runMigrations = $this->nonInteractive
+            ? true // Non-interactive: always attempt migrations
+            : $this->confirm(
+                question: 'Run database migrations now?',
+                default: true,
+            );
 
         if ($runMigrations) {
             $this->writeln($this->dim('  ◌ Running migrations...'));
