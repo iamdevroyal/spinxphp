@@ -33,6 +33,13 @@ final class Installer
      */
     private bool $nonInteractive;
 
+    /**
+     * True when run under the global `spinxphp/installer` CLI.
+     * In managed mode the banner and final summary are suppressed here
+     * because the global installer owns all UX output.
+     */
+    private bool $managed;
+
     public function __construct(
         private readonly string $projectRoot,
         ?object $io = null,
@@ -42,6 +49,7 @@ final class Installer
             && function_exists('posix_isatty')
             && @posix_isatty(STDOUT);
         $this->nonInteractive = strtolower((string) (getenv('SPINX_NO_INTERACTION') ?: '')) === 'true';
+        $this->managed        = strtolower((string) (getenv('SPINX_MANAGED') ?: ''))        === 'true';
     }
 
     public static function postCreateProject(?object $event = null): void
@@ -67,7 +75,10 @@ final class Installer
 
     public function install(): void
     {
-        $this->printBanner();
+        // Only show the interactive banner when NOT managed by the global installer
+        if (!$this->managed) {
+            $this->printBanner();
+        }
 
         // ── 1. App Name ─────────────────────────────────────────────────
         $defaultAppName = ucfirst(basename($this->projectRoot));
@@ -182,7 +193,10 @@ final class Installer
         }
 
         // ── Done ─────────────────────────────────────────────────────────
-        $this->printSummary($appName, $appUrl, $frontendKey, $runtimeDriver, $runMigrations);
+        // Only print the summary when running standalone (not under global installer)
+        if (!$this->managed) {
+            $this->printSummary($appName, $appUrl, $frontendKey, $runtimeDriver, $runMigrations);
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────
