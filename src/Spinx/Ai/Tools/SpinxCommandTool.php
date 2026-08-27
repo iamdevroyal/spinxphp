@@ -69,11 +69,12 @@ final class SpinxCommandTool implements ToolInterface
         }
 
         // Reject dangerous shell chaining/redirection characters
-        if (preg_match('/[;&|`$><]/', $commandStr)) {
+        if (preg_match('/[;&|`$><\r\n]/', $commandStr)) {
             return ['error' => 'Command chaining, piping, or shell redirection is not allowed.'];
         }
 
-        $cmd = PHP_BINARY . ' ' . escapeshellarg($this->projectRoot . '/spinx') . ' ' . $commandStr;
+        $escapedArgs = array_map('escapeshellarg', array_slice($parts, 1));
+        $cmd = PHP_BINARY . ' ' . escapeshellarg($this->projectRoot . '/spinx') . ' ' . escapeshellcmd($baseCommand) . ($escapedArgs !== [] ? ' ' . implode(' ', $escapedArgs) : '');
         $descriptors = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],

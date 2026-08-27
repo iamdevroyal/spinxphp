@@ -71,4 +71,24 @@ final class SchemaBuilder
             $this->drop($tableName);
         }
     }
+
+    /**
+     * Enable a database extension (e.g. 'vector', 'uuid-ossp' on PostgreSQL).
+     */
+    public function enableExtension(string $name): void
+    {
+        try {
+            $this->connection->executeStatement("CREATE EXTENSION IF NOT EXISTS \"{$name}\"");
+        } catch (\Throwable) {
+            // Ignored on platforms that don't support CREATE EXTENSION (e.g. SQLite, MySQL)
+        }
+    }
+
+    /**
+     * Execute arbitrary raw SQL DDL statement.
+     */
+    public function execute(string $sql): void
+    {
+        $this->connection->executeStatement($sql);
+    }
 }

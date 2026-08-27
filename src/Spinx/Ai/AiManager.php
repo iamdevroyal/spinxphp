@@ -119,5 +119,7 @@ final class AiManager
         $this->registerAgent(new FrontendAgent($this->client, $this->tools, $this->continuity));
         $this->registerAgent(new SecurityAgent($this->client, $this->tools, $this->continuity));
         $this->registerAgent(new DevOpsAgent($this->client, $this->tools, $this->continuity));
+        $this->registerAgent(new \Spinx\Ai\Agents\AsyncAgent($this->client, $this->tools, $this->continuity, $this->projectRoot));
+        $this->registerAgent(new \Spinx\Ai\Agents\StorageVectorAgent($this->client, $this->tools, $this->continuity, $this->projectRoot));
     }
 }

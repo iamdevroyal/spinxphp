@@ -19,20 +19,82 @@ use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 final class Request
 {
     private static ?SymfonyRequest $current = null;
+    /** @var array<int, SymfonyRequest> */
+    private static array $coroutineRequests = [];
 
     /** @internal Called by Kernel::handle() on every inbound request */
     public static function setCurrentRequest(?SymfonyRequest $request): void
     {
+        if (function_exists('swoole_coroutine_get_cid') && swoole_coroutine_get_cid() > 0) {
+            $cid = (int) swoole_coroutine_get_cid();
+            if ($request === null) {
+                unset(self::$coroutineRequests[$cid]);
+            } else {
+                self::$coroutineRequests[$cid] = $request;
+            }
+            return;
+        }
+
         self::$current = $request;
     }
 
     public static function instance(): SymfonyRequest
     {
+        if (function_exists('swoole_coroutine_get_cid') && swoole_coroutine_get_cid() > 0) {
+            $cid = (int) swoole_coroutine_get_cid();
+            if (isset(self::$coroutineRequests[$cid])) {
+                return self::$coroutineRequests[$cid];
+            }
+        }
+
         if (self::$current === null) {
             self::$current = SymfonyRequest::createFromGlobals();
         }
 
         return self::$current;
+    }
+
+    /**
+     * Get the raw, unmodified request body bytes (crucial for webhook signature verification).
+     */
+    public static function rawBody(): string
+    {
+        return (string) self::instance()->getContent();
+    }
+
+    /**
+     * Retrieve the JSON decoded payload or a specific key from it.
+     */
+    public static function json(?string $key = null, mixed $default = null): mixed
+    {
+        $raw = self::rawBody();
+        if ($raw === '') {
+            return $key === null ? [] : $default;
+        }
+
+        $decoded = @json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return $key === null ? [] : $default;
+        }
+
+        if ($key === null) {
+            return $decoded;
+        }
+
+        return $decoded[$key] ?? $default;
+    }
+
+    /**
+     * Retrieve the Bearer token from the Authorization header if present.
+     */
+    public static function bearerToken(): ?string
+    {
+        $header = self::header('Authorization', '');
+        if ($header !== null && str_starts_with($header, 'Bearer ')) {
+            return substr($header, 7);
+        }
+
+        return null;
     }
 
     public static function all(): array

@@ -63,17 +63,8 @@ final class CacheManager
             throw new \RuntimeException('The redis PHP extension is required to use the Redis cache store.');
         }
 
-        $host = (string) Config::get('cache.stores.redis.host', env('REDIS_HOST', '127.0.0.1'));
-        $port = (int) Config::get('cache.stores.redis.port', env('REDIS_PORT', 6379));
         $prefix = (string) Config::get('cache.prefix', 'spinx_cache:');
-
-        $client = new \Redis();
-        $client->connect($host, $port);
-
-        $password = Config::get('cache.stores.redis.password', env('REDIS_PASSWORD'));
-        if ($password) {
-            $client->auth($password);
-        }
+        $client = \Spinx\Redis\Redis::connection('cache');
 
         return new RedisCacheStore($client, $prefix);
     }

@@ -30,7 +30,6 @@ final class SessionMiddleware
 
     public function __construct(
         private readonly SessionInterface $session,
-        private readonly FileSession|null $fileSession = null,
     ) {
     }
 
@@ -60,8 +59,8 @@ final class SessionMiddleware
     /** @return array<string, mixed> */
     private function loadData(string $sessionId): array
     {
-        if ($this->fileSession !== null) {
-            return $this->fileSession->load($sessionId);
+        if (method_exists($this->session, 'load')) {
+            return $this->session->load($sessionId);
         }
 
         return [];
@@ -69,8 +68,8 @@ final class SessionMiddleware
 
     private function persistData(): void
     {
-        if ($this->fileSession !== null) {
-            $this->fileSession->persist();
+        if (method_exists($this->session, 'persist')) {
+            $this->session->persist();
         }
     }
 

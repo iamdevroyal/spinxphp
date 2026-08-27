@@ -29,7 +29,9 @@ final class CsrfMiddleware implements MiddlewareInterface
     {
         $token = Csrf::tokenForRequest($request, $this->session);
 
-        if (in_array($request->getMethod(), self::STATE_CHANGING_METHODS, true)) {
+        $isExempt = (bool) $request->attributes->get('_csrf_exempt', false);
+
+        if (!$isExempt && in_array($request->getMethod(), self::STATE_CHANGING_METHODS, true)) {
             $submitted = $request->request->get('_token') 
                 ?? $request->headers->get('X-CSRF-TOKEN') 
                 ?? $request->headers->get('X-XSRF-TOKEN');

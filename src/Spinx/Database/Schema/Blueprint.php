@@ -146,6 +146,27 @@ final class Blueprint
         return $this;
     }
 
+    /** Adds a UUID column (stored as string/CHAR(36)). */
+    public function uuid(string $name = 'uuid', bool $nullable = false): static
+    {
+        $this->lastColumn = $name;
+        $this->table->addColumn($name, Types::STRING, ['length' => 36, 'notnull' => !$nullable]);
+
+        return $this;
+    }
+
+    /** Adds a vector embedding column (stored as JSON/TEXT in DBAL and vector(dim) in PostgreSQL). */
+    public function vector(string $name = 'embedding', int $dimensions = 1536, bool $nullable = true): static
+    {
+        $this->lastColumn = $name;
+        $this->table->addColumn($name, Types::TEXT, [
+            'notnull' => !$nullable,
+            'comment' => "vector({$dimensions})",
+        ]);
+
+        return $this;
+    }
+
     public function foreign(string $column, string $referencesTable, string $referencesColumn = 'id'): static
     {
         $this->table->addForeignKeyConstraint($referencesTable, [$column], [$referencesColumn]);

@@ -8,12 +8,7 @@ use Spinx\Session\SessionInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Session-backed CSRF protection with cookie synchronization.
- *
- * The CSRF token is securely stored and managed in the user's active session.
- * For client-side compatibility (e.g. JavaScript fetch/axios requests),
- * the token is also synchronized to an XSRF-TOKEN cookie and verified against
- * the session token on state-changing requests (POST, PUT, PATCH, DELETE).
+ * Session-backed CSRF protection with cookie synchronization and persistent worker isolation.
  */
 final class Csrf
 {
@@ -21,6 +16,8 @@ final class Csrf
     public const SESSION_KEY = '_token';
 
     private static ?string $currentToken = null;
+    /** @var array<int, string> */
+    private static array $coroutineTokens = [];
 
     /**
      * Retrieves or generates the CSRF token for the given session.
@@ -34,7 +31,9 @@ final class Csrf
             $session->set(self::SESSION_KEY, $token);
         }
 
-        return self::$currentToken = $token;
+        self::setCurrentToken($token);
+
+        return $token;
     }
 
     /**
@@ -44,8 +43,9 @@ final class Csrf
     {
         $token = self::generateToken();
         $session->set(self::SESSION_KEY, $token);
+        self::setCurrentToken($token);
 
-        return self::$currentToken = $token;
+        return $token;
     }
 
     /**
@@ -58,10 +58,13 @@ final class Csrf
         }
 
         $cookieToken = $request->cookies->get(self::COOKIE_NAME);
-
-        return self::$currentToken = (is_string($cookieToken) && $cookieToken !== '') 
+        $token = (is_string($cookieToken) && $cookieToken !== '') 
             ? $cookieToken 
             : self::generateToken();
+
+        self::setCurrentToken($token);
+
+        return $token;
     }
 
     /**
@@ -69,7 +72,15 @@ final class Csrf
      */
     public static function current(): string
     {
-        return self::$currentToken ??= self::generateToken();
+        $existing = self::getCurrentToken();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $generated = self::generateToken();
+        self::setCurrentToken($generated);
+
+        return $generated;
     }
 
     public static function token(): string
@@ -80,6 +91,20 @@ final class Csrf
     public static function generateToken(): string
     {
         return bin2hex(random_bytes(32));
+    }
+
+    /**
+     * Reset CSRF token for the current request/coroutine.
+     * Called by Kernel::handle() in the finally block.
+     */
+    public static function reset(): void
+    {
+        if (function_exists('swoole_coroutine_get_cid') && swoole_coroutine_get_cid() > 0) {
+            unset(self::$coroutineTokens[(int) swoole_coroutine_get_cid()]);
+            return;
+        }
+
+        self::$currentToken = null;
     }
 
     /**
@@ -94,21 +119,47 @@ final class Csrf
             return false;
         }
 
-        // 1. Verify against session token if session is available
+        // 1. If session is available, verify against session token
         if ($session !== null) {
             $sessionToken = $session->get(self::SESSION_KEY);
-            if (is_string($sessionToken) && $sessionToken !== '' && hash_equals($sessionToken, $submitted)) {
-                return true;
+            if (is_string($sessionToken) && $sessionToken !== '') {
+                return hash_equals($sessionToken, $submitted);
             }
         }
 
-        // 2. Verify against cookie token if available
+        // 2. Verify against cookie token if available (for stateless API double-submit)
         $expected = $request?->cookies->get(self::COOKIE_NAME);
         if (is_string($expected) && $expected !== '' && hash_equals($expected, $submitted)) {
             return true;
         }
 
-        // 3. Verify against static request-cycle token
-        return self::$currentToken !== null && hash_equals(self::$currentToken, $submitted);
+        // 3. Verify against current request-cycle token
+        $curr = self::getCurrentToken();
+        return $curr !== null && hash_equals($curr, $submitted);
+    }
+
+    private static function setCurrentToken(?string $token): void
+    {
+        if (function_exists('swoole_coroutine_get_cid') && swoole_coroutine_get_cid() > 0) {
+            $cid = (int) swoole_coroutine_get_cid();
+            if ($token === null) {
+                unset(self::$coroutineTokens[$cid]);
+            } else {
+                self::$coroutineTokens[$cid] = $token;
+            }
+            return;
+        }
+
+        self::$currentToken = $token;
+    }
+
+    private static function getCurrentToken(): ?string
+    {
+        if (function_exists('swoole_coroutine_get_cid') && swoole_coroutine_get_cid() > 0) {
+            $cid = (int) swoole_coroutine_get_cid();
+            return self::$coroutineTokens[$cid] ?? null;
+        }
+
+        return self::$currentToken;
     }
 }

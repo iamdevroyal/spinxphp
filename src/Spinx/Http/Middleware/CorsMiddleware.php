@@ -57,16 +57,21 @@ final class CorsMiddleware implements MiddlewareInterface
     /** @param string[] $allowedOrigins */
     private function resolveAllowOrigin(array $allowedOrigins, ?string $requestOrigin, bool $allowCredentials): ?string
     {
-        if (in_array('*', $allowedOrigins, true)) {
-            // Credentialed requests can never legally use "*" — reflect
-            // the actual origin instead so the response is still valid,
-            // rather than silently sending a header the browser will
-            // just reject anyway.
-            return $allowCredentials ? ($requestOrigin ?? '*') : '*';
-        }
-
+        // 1. Explicit origin match always wins
         if ($requestOrigin !== null && in_array($requestOrigin, $allowedOrigins, true)) {
             return $requestOrigin;
+        }
+
+        // 2. Wildcard origin handling
+        if (in_array('*', $allowedOrigins, true)) {
+            // Security Invariant: The CORS standard and web security model forbid
+            // combining wildcard or arbitrary reflected origins with credentials: true.
+            // When credentials are true, only explicitly allowed origins can be matched.
+            if ($allowCredentials) {
+                return null;
+            }
+
+            return '*';
         }
 
         return null;

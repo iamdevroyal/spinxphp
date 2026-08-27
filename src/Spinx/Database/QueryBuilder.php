@@ -148,7 +148,8 @@ final class QueryBuilder
 
     public function orderBy(string $column, string $direction = 'ASC'): static
     {
-        $this->query->addOrderBy($column, $direction);
+        $normalizedDirection = strtoupper(trim($direction)) === 'DESC' ? 'DESC' : 'ASC';
+        $this->query->addOrderBy($column, $normalizedDirection);
 
         return $this;
     }

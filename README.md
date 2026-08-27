@@ -2,13 +2,13 @@
 
 # Spinx Framework
 
-**The Modern High-Performance PHP Framework for Persistent Workers, Enforced DDD Architecture, and Reactive Island Hydration.**
+**The Modern High-Performance PHP Framework for Persistent Workers, Enforced DDD Architecture, Universal Queues, Real-Time WebSockets, and Autonomous AI Generation.**
 
 [![Latest Version](https://img.shields.io/badge/release-v1.0.17-6366f1.svg?style=flat-square)](https://github.com/iamdevroyal/spinxphp)
 [![Documentation](https://img.shields.io/badge/docs-spinxphp.pages.dev%2Fdocs-ec4899.svg?style=flat-square)](https://spinxphp.pages.dev/docs)
 [![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8b5cf6.svg?style=flat-square)](https://php.net)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Build Status](https://img.shields.io/badge/tests-112%2F112%20passing-10b981.svg?style=flat-square)](https://github.com/iamdevroyal/spinxphp)
+[![Build Status](https://img.shields.io/badge/tests-69%2F69%20passing-10b981.svg?style=flat-square)](https://github.com/iamdevroyal/spinxphp)
 
 </div>
 
@@ -16,372 +16,296 @@
 
 ## ⚡ Why Spinx?
 
-Traditional PHP frameworks run on PHP-FPM, destroying and recreating the application lifecycle on every incoming HTTP request. Spinx runs inside **long-lived persistent execution workers** (RoadRunner by default, Swoole coroutines opt-in). Route compilation, dependency injection reflection, configuration parsing, and database schemas remain warmed in RAM across requests — delivering **sub-millisecond latencies and massive throughput**.
+Traditional PHP frameworks run on PHP-FPM, destroying and recreating the application lifecycle on every incoming HTTP request. Spinx runs inside **long-lived persistent execution workers** (RoadRunner by default, Swoole coroutines opt-in). Route compilation, dependency injection reflection, configuration parsing, and database schemas remain warmed in RAM across requests — delivering **sub-millisecond response latencies and handling thousands of requests per second per node**.
 
-### Core Pillars
+Spinx pairs extreme execution speed with **Kernel-Enforced Domain-Driven Design (DDD)**, an autonomous **9-Agent AI Builder**, and full native support for **Asynchronous Queues**, **Real-Time WebSockets**, **Multi-Disk Cloud Storage**, and **Semantic Vector Search (`pgvector`)**.
 
-- 🚀 **Extreme Persistent-Worker Performance**: Powered by a unified `ServerAdapter` contract with zero per-request bootstrap cost.
-- 🏗️ **Kernel-Enforced DDD Architecture**: Code must live within structured Domain-Driven Design modules (`app/Modules/<Name>/module.php`). Loose files in global folders are rejected at boot.
-- 🛡️ **Zero-Leak Memory Safety**: `RequestScope` container resets and custom PHPStan static analysis rules eliminate cross-request memory contamination.
-- ⚡ **Fluent Route DSL & Alias Registry**: Clean, expressive routing with automatic DI autowiring.
-- 🔐 **State-Safe Auth & Sessions**: Integrated request-isolated session drivers (File & Database) and bcrypt authentication.
-- 🗄️ **DBAL 4 Active Record ORM & Schema Cache**: Compiled ahead-of-time schema column caching, selective column querying (`selectWithout`), conditional query chaining (`when/then/else`), platform-aware `upsert`, and transaction row locking (`atomic`).
-- ⏱️ **In-Framework Task Scheduler**: Fluent cron scheduling in `schedule.php` executed via a single `spinx schedule:run` command.
-- 📖 **OpenAPI 3.1 Generator**: Auto-generate OpenAPI schemas via route reflection and PHP 8 attributes.
-- 🏝️ **Reactive Island Hydration**: Server-rendered HTML views with targeted client-side component hydration (`@island`) for Vue 3 and React 19.
-- 📱 **Mobile Preview & Native Shells**: Interactive browser-based mobile preview container (`spinx preview --mobile`) and native Android (Kotlin) / iOS (Swift) shell generators.
+---
+
+## 🚀 Core Pillars & Subsystems
+
+| Subsystem | Key Primitives | Description |
+|---|---|---|
+| **⚡ Persistent Runtime** | RoadRunner, Swoole | High-throughput coroutine/worker execution with zero per-request bootstrap cost. |
+| **🏛️ Enforced DDD** | `app/Modules/<Name>/` | Pure Domain Entities, Repository Contracts, Application Services, and Infrastructure separation. |
+| **🛡️ Zero-Leak Safety** | `RequestScope`, `Csrf::reset()` | Request isolation and automatic garbage collection between persistent worker requests. |
+| **⏳ Universal Queues** | `Queue::`, `Job`, `Worker` | Priority queues (`withPriority()`), delayed jobs (`later()`), retry backoffs, and HMAC anti-tampering. |
+| **📡 Real-Time WebSockets** | `Broadcast::`, `ShouldBroadcast` | Pusher protocol driver (100% compatible with **Soketi**, **Pusher Cloud**, **Laravel Reverb**) and private channels. |
+| **📦 Multi-Disk Storage** | `Storage::disk('s3')` | Native AWS Signature V4 supporting **AWS S3**, **Cloudflare R2**, **MinIO**, and temporary signed URLs. |
+| **🧠 Vector Search** | `Vector::`, `pgvector` | Semantic embedding generation and cosine/Euclidean vector search for AI-native applications. |
+| **🤖 Application LLM** | `Llm::chat()` | Generic AI layer supporting **Anthropic** and **OpenAI** with structured request/response DTOs. |
+| **🔴 Centralized Redis** | `Redis::`, `RedisSession` | Multi-connection database pooling (`cache`, `session`, `queue`) and atomic distributed rate limiting. |
+| **🔒 Production Security** | `HmacWebhookVerifier` | Cryptographic raw body webhook verification, `Route::withoutCsrf()`, and strict CORS matching. |
+| **🤖 Autonomous AI Builder**| `Spinx\Ai`, `Orchestrator` | 9-Agent autonomous engineering fleet guided by kernel-enforced `SPINX_AI_ARCHITECTURE.md` context. |
+| **🏝️ Reactive Islands** | `@island`, `@csrf` | Native server-rendered views (`*.spinx.html`) with selective Vue 3 & React 19 client-side hydration. |
 
 ---
 
 ## 📦 Installation & Quickstart
 
-Create a new Spinx project with a single command:
+Spinx ships as a Composer package. Once installed, all projects are scaffolded and managed through the local `spinx` CLI script.
+
+### Step 1 — Install Spinx via Composer
 
 ```bash
-# 1. Create a new Spinx application
-spinx new my-app --frontend=vue
-
-# 2. Enter project directory
-cd my-app
-
-# 3. Boot backend persistent server + Vite HMR dev server
-spinx serve
+composer create-project spinx/spinx my-spinx --stability=dev
+cd my-spinx
 ```
+
+### Step 2 — Scaffold a New Application
+
+```bash
+# Scaffold a new project directory (choose vue or react frontend)
+php spinx new my-app --frontend=vue
+cd my-app
+```
+
+### Step 3 — Install All Dependencies
+
+```bash
+# Install PHP dependencies
+composer install
+
+# Install Node.js/Vite frontend dependencies
+cd frontend && npm install && cd ..
+```
+
+### Step 4 — Download the RoadRunner Binary
+
+Spinx uses [RoadRunner](https://roadrunner.dev) as its default persistent HTTP worker. Download the matching binary for your OS:
+
+```bash
+vendor/bin/rr get
+```
+
+> **Swoole users:** Set `"driver": "swoole"` in `spinx.json` and skip this step.
+> You can also swap at any time via: `php spinx driver:swap swoole`
+
+### Step 5 — Configure Your Environment
+
+```bash
+cp .env.example .env
+
+# Edit .env and set at minimum:
+# APP_KEY=base64:...    (generate a strong 32-byte key)
+# DB_CONNECTION=pgsql   (or sqlite for local dev)
+# REDIS_HOST=127.0.0.1  (if using queues, sessions, or cache)
+```
+
+### Step 6 — Run Database Migrations
+
+```bash
+php spinx migrate
+```
+
+### Step 7 — Start the Development Server
+
+```bash
+# Starts RoadRunner (or Swoole) + Vite HMR server concurrently
+php spinx serve
+```
+
+Your application is now running at `http://localhost:8080` and the Vite HMR dev server is live at `http://localhost:5173`.
+
+---
 
 ### System Requirements
 
-- **PHP**: `>= 8.2` (uses typed properties, readonly classes, and enums)
-- **Extensions**: `ext-mbstring`, `ext-pdo` (or `pdo_sqlite` / `pdo_mysql` / `pdo_pgsql`)
-- **Node.js**: `>= 18.0` (for Vite frontend asset pipeline)
+| Requirement | Minimum Version | Notes |
+|---|---|---|
+| **PHP** | `>= 8.2` | Typed properties, readonly, enums, fibers |
+| **Extensions** | `mbstring`, `pdo`, `json` | `pdo_pgsql` for PostgreSQL, `pdo_mysql` for MySQL, `redis` for Redis |
+| **Composer** | `>= 2.0` | Dependency management |
+| **Node.js** | `>= 18.0` | Required only for Vite frontend pipeline |
+| **RoadRunner** | Latest | Auto-downloaded via `vendor/bin/rr get` |
+| **PostgreSQL** | `>= 14` *(optional)* | Required for `pgvector` Vector Search |
 
 ---
 
-## 🧩 Enforced DDD Module Architecture
+### Optional Services (`.env` / `config/`)
 
-Spinx eliminates messy global folders by enforcing Domain-Driven Design (DDD) boundaries at the kernel level.
+| Feature | Env Variable | Default |
+|---|---|---|
+| **Redis Caching** | `REDIS_HOST` | Disabled (falls back to file) |
+| **Redis Sessions** | `SESSION_DRIVER=redis` | File driver |
+| **Redis Queues** | `QUEUE_CONNECTION=redis` | Database driver |
+| **WebSockets (Soketi)** | `BROADCAST_DRIVER=pusher`, `PUSHER_HOST` | Null driver |
+| **AWS S3 / R2** | `FILESYSTEM_DISK=s3`, `AWS_*` keys | Local disk |
+| **OpenAI Embeddings** | `OPENAI_API_KEY` | Disabled |
+| **Anthropic LLM** | `ANTHROPIC_API_KEY` | Disabled |
 
-```bash
-spinx make:module Billing
+---
+
+## 🧩 Enforced DDD Module Anatomy
+
+Spinx eliminates messy root folders by enforcing Domain-Driven Design (DDD) boundaries at the kernel level:
+
 ```
-
-This scaffolds the following structured architecture:
-
-```
-app/Modules/Billing/
+app/Modules/<ModuleName>/
 ├── Domain/
-│   ├── Entities/            (pure domain logic, zero infrastructure dependencies)
-│   ├── ValueObjects/
-│   ├── Events/
-│   └── Repositories/        (interfaces only)
+│   ├── Entities/             -- Pure PHP entities with typed properties & business mutations.
+│   │                         -- ZERO framework, HTTP, DBAL, or Model imports!
+│   ├── ValueObjects/         -- Immutable domain value objects (e.g. Money, Email, Address).
+│   ├── Events/               -- Domain events.
+│   └── Repositories/         -- Repository interface contracts only (*Interface.php).
 ├── Application/
-│   ├── Services/            (use-case orchestration)
-│   └── Jobs/                (queueable asynchronous tasks)
+│   ├── Services/             -- Use-case orchestration services.
+│   └── Jobs/                 -- Asynchronous queue jobs (implementing Spinx\Queue\Job).
 ├── Infrastructure/
-│   ├── Repositories/        (concrete DBAL repository implementations)
 │   ├── Http/
-│   │   ├── Controllers/     (invokable HTTP controllers)
-│   │   └── Middleware/      (request middlewares)
-│   └── Persistence/
-│       ├── Models/          (Active Record models)
-│       └── Migrations/      (timestamped schema migrations)
-└── module.php               (declarative routes, aliases, and DI container wiring)
+│   │   ├── Controllers/      -- Thin HTTP controllers using Spinx Request/Response facades.
+│   │   └── Middleware/       -- Request middlewares (implementing MiddlewareInterface).
+│   ├── Repositories/         -- Concrete DBAL 4 repository implementations of Domain interfaces.
+│   ├── Persistence/
+│   │   ├── Models/           -- Active Record models extending Spinx\Database\Model.
+│   │   └── Migrations/       -- Timestamped migrations using Spinx\Database\Schema\Blueprint.
+│   └── Views/                -- Template views (*.spinx.html).
+└── module.php                -- Declarative routing, alias registry, and DI container wiring.
 ```
 
 ---
 
-## 🚦 Fluent Routing DSL & Alias Registry
+## 💡 Code Examples
 
-Declare your module's controllers, middlewares, routes, and services cleanly inside `app/Modules/<Name>/module.php`:
-
+### 1. Asynchronous Queue Processing (`Queue::`)
 ```php
-use App\Modules\Billing\Infrastructure\Http\Controllers\InvoiceController;
-use Spinx\Auth\Middleware\AuthMiddleware;
-use Spinx\Routing\{AliasRegistry, Route, RouteBuilder};
-use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Spinx\Queue\Queue;
+use App\Modules\Billing\Application\Jobs\ProcessPaymentJob;
 
-return [
-    // Register controller aliases (auto-wired into Symfony DI container):
-    'controllers' => static function (AliasRegistry $r): void {
-        $r->registerController('invoice_show', InvoiceController::class);
-    },
+// Push to high priority queue
+Queue::onQueue('billing')
+    ->withPriority(10)
+    ->push(new ProcessPaymentJob($invoiceId));
 
-    // Register middleware aliases:
-    'middlewares' => static function (AliasRegistry $r): void {
-        $r->registerMiddleware('auth', AuthMiddleware::class);
-    },
-
-    // Define routes using fluent DSL:
-    'routes' => static function (RouteBuilder $routes): void {
-        Route::get(['invoices.show', '/invoices/{id}'])
-            ->middleware(['auth'])
-            ->controller('invoice_show');
-
-        Route::group('/api/v1', function (RouteBuilder $group): void {
-            Route::post(['invoices.create', '/invoices'])->controller('invoice_create');
-        });
-    },
-
-    // Register module services into Symfony DI:
-    'services' => static function (ContainerBuilder $container, string $moduleDir): void {
-        $container->register(InvoiceRepositoryInterface::class, InvoiceRepository::class)
-            ->setAutowired(true)
-            ->setPublic(true);
-    },
-];
+// Delay execution by 60 seconds
+Queue::later(60, new ProcessPaymentJob($invoiceId));
 ```
 
----
-
-## 🗄️ Database & Active Record ORM
-
-Spinx ORM is built on top of Doctrine DBAL 4, providing familiar active-record ergonomics with persistent-worker performance.
-
+### 2. Real-Time WebSocket Event Broadcasting (`Broadcast::`)
 ```php
-namespace App\Modules\Billing\Infrastructure\Persistence\Models;
+use Spinx\Broadcasting\Broadcast;
+use Spinx\Broadcasting\PrivateChannel;
+use Spinx\Broadcasting\ShouldBroadcast;
 
-use Spinx\Database\Model;
-
-final class Invoice extends Model
+// Event implementing ShouldBroadcast
+class InvoicePaidEvent implements ShouldBroadcast
 {
-    protected static string $table = 'invoices';
-    protected array $fillable = ['customer_id', 'amount', 'status'];
-    protected array $casts = ['amount' => 'float'];
-}
-```
+    public function __construct(public int $invoiceId, public float $amount) {}
 
-### Pre-Compiled Schema Cache (`spinx schema:compile`)
+    public function broadcastOn(): PrivateChannel {
+        return new PrivateChannel('invoices.' . $this->invoiceId);
+    }
 
-Introspect tables ahead of time and load column mappings directly into OpCache:
-
-```bash
-spinx schema:compile
-```
-
-### Advanced Querying
-
-```php
-use App\Modules\Billing\Infrastructure\Persistence\Models\Invoice;
-use Spinx\Database\DB;
-
-// 1. Column filtering backed by pre-compiled SchemaCache:
-$invoices = Invoice::query()
-    ->selectWith('id', 'amount', 'status')
-    ->get();
-
-$users = User::query()
-    ->selectWithout('password', 'remember_token')
-    ->get();
-
-// 2. Conditional query builder (when / then / else / otherwise):
-$results = Invoice::query()
-    ->where('status', 'active')
-    ->when($isAdmin)
-        ->then(fn($q) => $q->where('include_internal', true))
-        ->else(fn($q) => $q->where('is_public', true))
-    ->get();
-
-// 3. Platform-aware atomic upsert:
-Invoice::upsert(
-    values: ['id' => 101, 'amount' => 450.00, 'status' => 'paid'],
-    uniqueColumns: ['id'],
-    updateColumns: ['amount', 'status']
-);
-
-// 4. Row locking inside transactions (SELECT FOR UPDATE):
-Invoice::atomic($invoiceId, function (Invoice $invoice): void {
-    $invoice->update(['status' => 'settled']);
-});
-
-// 5. DB Static Façade for transactions:
-DB::transaction(function ($conn): void {
-    DB::statement('UPDATE accounts SET balance = balance - 100 WHERE id = :id', ['id' => 1]);
-    DB::statement('UPDATE accounts SET balance = balance + 100 WHERE id = :id', ['id' => 2]);
-});
-```
-
----
-
-## 🔒 Authentication & Session Subsystem
-
-Designed specifically to prevent memory leaks and session fixation attacks in persistent runtimes:
-
-```php
-use Spinx\Auth\{Auth, Hash};
-
-// 1. Bcrypt Password Hashing:
-$hashed = Hash::make('secret_password', cost: 12);
-$isValid = Hash::check('secret_password', $hashed);
-
-// 2. Attempt Login (auto-regenerates session ID for fixation protection):
-if (Auth::attempt(['email' => $email, 'password' => $password])) {
-    $user = Auth::user();
-    $userId = Auth::id();
-}
-
-// 3. Check State & Logout:
-if (Auth::check()) {
-    // User is logged in
-}
-
-Auth::logout();
-```
-
----
-
-## 🧪 Data Validation Engine
-
-```php
-use Spinx\Validation\Validator;
-
-$validated = Validator::make($request->request->all(), [
-    'name'     => 'required|string|max:100',
-    'email'    => 'required|email',
-    'password' => 'required|min:8|confirmed',
-    'tier'     => 'required|in:free,pro,enterprise',
-    'bio'      => 'nullable|string|max:500',
-])->validate(); // Returns strictly allowed attributes; drops extraneous keys
-```
-
----
-
-## ⏱️ In-Framework Task Scheduler
-
-Define cron jobs fluently in `schedule.php`:
-
-```php
-use Spinx\Schedule\Scheduler;
-
-return function (Scheduler $scheduler, $container): void {
-    // Run daily at 03:00 AM:
-    $scheduler->call(function () use ($container) {
-        $container->get(CleanupService::class)->run();
-    }, 'daily cleanup')->daily('03:00');
-
-    // Run every 15 minutes:
-    $scheduler->call(fn() => syncInventory(), 'inventory sync')->everyMinutes(15);
-
-    // Run every Monday at 08:30:
-    $scheduler->call(fn() => sendWeeklyReport(), 'weekly report')->weekly(1, '08:30');
-};
-```
-
-Run due tasks via one OS cron entry:
-```bash
-* * * * * cd /path/to/app && php spinx schedule:run >> /dev/null 2>&1
-```
-
----
-
-## 📖 OpenAPI 3.1 Spec Generator
-
-Annotate your controllers with native PHP 8 attributes:
-
-```php
-namespace App\Modules\Billing\Infrastructure\Http\Controllers;
-
-use Spinx\OpenApi\Attributes\{ApiSummary, ApiParam, ApiResponse, ApiTag};
-use Symfony\Component\HttpFoundation\{Request, JsonResponse};
-
-#[ApiTag('Invoices')]
-#[ApiSummary('Retrieve invoice details')]
-#[ApiParam(name: 'id', in: 'path', type: 'integer', description: 'Invoice ID')]
-#[ApiResponse(status: 200, description: 'Invoice data returned')]
-#[ApiResponse(status: 404, description: 'Invoice not found')]
-final class InvoiceShowController
-{
-    public function __invoke(Request $request, int $id): JsonResponse
-    {
-        return new JsonResponse(['id' => $id, 'status' => 'paid']);
+    public function broadcastWith(): array {
+        return ['id' => $this->invoiceId, 'status' => 'paid', 'amount' => $this->amount];
     }
 }
+
+// Dispatch event to WebSocket subscribers (Soketi / Pusher / Reverb)
+Broadcast::event(new InvoicePaidEvent(42, 199.99));
 ```
 
-Generate the OpenAPI 3.1 JSON schema:
-```bash
-spinx openapi:generate --output=public/openapi.json
+### 3. Multi-Disk Cloud Storage (`Storage::`)
+```php
+use Spinx\Filesystem\Storage;
+
+// Store to Cloudflare R2 / AWS S3
+Storage::disk('s3')->put('reports/annual_2026.pdf', $pdfBytes);
+
+// Generate secure temporary signed download URL (valid for 2 hours)
+$url = Storage::disk('s3')->temporaryUrl('reports/annual_2026.pdf', now()->addHours(2));
+```
+
+### 4. Semantic Vector Search (`Vector::`)
+```php
+use Spinx\Database\Vector\Vector;
+
+// 1. Generate text embedding
+$embedding = Vector::embed('Artificial intelligence agent architecture');
+
+// 2. Perform cosine similarity search over database table
+$results = Vector::search(
+    table: 'documents',
+    vectorColumn: 'embedding',
+    queryVector: $embedding,
+    filters: ['status' => 'published'],
+    limit: 5,
+    metric: 'cosine' // cosine (<=>), l2 (<->), inner_product (<#>)
+);
+```
+
+### 5. Application AI & LLM Bridge (`Llm::`)
+```php
+use Spinx\Llm\Llm;
+use Spinx\Llm\ChatMessage;
+use Spinx\Llm\LlmRequest;
+
+// Quick chat
+$reply = Llm::chat('Explain persistent-process PHP runtimes in two sentences.');
+
+// Structured JSON generation
+$response = Llm::provider('anthropic')->generate(
+    (new LlmRequest())
+        ->setSystemPrompt('You output strictly valid JSON.')
+        ->addUserMessage('Generate a user profile for John Doe.')
+);
+
+$userData = $response->json();
 ```
 
 ---
 
-## 🏝️ Reactive Island Hydration
+## 🤖 Spinx AI Builder & 9-Agent Fleet
 
-Server-render your HTML views with ultra-fast native templates and selectively hydrate Vue 3 or React 19 components on the client:
+Spinx includes an autonomous engineering AI subsystem located in `Spinx\Ai`. The builder coordinates 9 specialized agents that autonomously design, generate, and audit full DDD application modules:
 
-```html
-<div class="card">
-    <h1>Project Metrics</h1>
-    <p>Server rendered timestamp: {{ date('Y-m-d H:i') }}</p>
-
-    <!-- Client-side reactive island hydrated via Vite -->
-    @island('MetricsChart', ['projectId' => $project->id])
-</div>
 ```
+                             ┌─────────────────────────┐
+                             │    OrchestratorAgent    │
+                             └────────────┬────────────┘
+                                          │
+    ┌──────────────┬──────────────┬───────┴──────┬──────────────┬──────────────┬──────────────┬──────────────┐
+┌───▼────┐   ┌─────▼────┐   ┌─────▼────┐   ┌─────▼────┐   ┌─────▼────┐   ┌─────▼────┐   ┌─────▼────┐   ┌─────▼────┐
+│Architect│  │ Database │   │ Routing  │   │ Frontend │   │ Security │   │  DevOps  │   │  Async   │   │ Storage  │
+│ Agent  │   │  Agent   │   │  Agent   │   │  Agent   │   │  Agent   │   │  Agent   │   │  Agent   │   │  Vector  │
+└────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘
+```
+
+- **Enforced Invariants:** Guided by [`resources/ai/SPINX_AI_ARCHITECTURE.md`](resources/ai/SPINX_AI_ARCHITECTURE.md).
+- **Proactive Anti-Pattern Guard:** `AiGuard::detectArchitecturalViolations()` detects non-Spinx requests (e.g. asking for `app/Models` or `routes/web.php`) and guides developers into Spinx DDD conventions.
+- **Production Readiness Audit:** Every build is checked for syntax, DDD purity, and security before finishing.
 
 ---
 
-## 📱 Mobile Device Preview Tool
-
-Spinx includes a built-in browser-based interactive mobile device container for testing responsive views across simulated iPhone and Android viewports:
+## 🛠️ CLI Reference
 
 ```bash
-spinx preview --mobile
+# Development & Runtime
+spinx serve                       # Start persistent worker runtime + Vite HMR server
+spinx preview --mobile            # Launch browser mobile viewport preview container
+
+# Domain-Driven Code Generation
+spinx make:module <Name>          # Scaffold complete DDD module structure
+spinx make:migration <Name>       # Create timestamped schema migration
+spinx make:model <Name>           # Create DBAL Active Record model
+spinx make:controller <Name>      # Create HTTP controller
+
+# Database & Schema
+spinx migrate                     # Execute pending database migrations
+spinx migrate:fresh               # Drop all tables and re-run all migrations
+spinx schema:compile              # Compile table schema columns into ahead-of-time cache
+
+# Queues & Background Workers
+spinx queue:work                  # Start queue worker daemon
+spinx queue:work --queue=high,def # Poll priority queues in order
+
+# Autonomous AI Builder
+spinx ai:build "<prompt>"         # Execute autonomous multi-agent feature build
+spinx ai:chat "<prompt>"          # Interactive consultation with OrchestratorAgent
 ```
-
-To scaffold native WebView shells:
-```bash
-# Android shell (Kotlin + WebView):
-spinx build:mobile --android
-
-# iOS shell (Swift + WKWebView):
-spinx build:mobile --ios
-```
-
----
-
-## 🛠️ Complete CLI Command Reference
-
-| Command | Description |
-|---|---|
-| `spinx new <project>` | Scaffold a brand new Spinx project |
-| `spinx serve` | Boot backend server (RoadRunner/Swoole) + Vite dev server (HMR) |
-| `spinx driver:swap <driver>` | Switch runtime driver (`roadrunner` or `swoole`) |
-| `spinx make:module <Name>` | Scaffold a complete DDD module skeleton |
-| `spinx make:controller <Mod> <Name>` | Generate controller in module Infrastructure layer |
-| `spinx make:entity <Mod> <Name>` | Generate Domain entity |
-| `spinx make:service <Mod> <Name>` | Generate Application service |
-| `spinx make:repository <Mod> <Name>` | Generate repository interface & implementation |
-| `spinx make:model <Mod> <Name>` | Generate ORM model in Infrastructure layer |
-| `spinx make:middleware <Mod> <Name>` | Generate middleware class |
-| `spinx make:migration <Mod> <desc>` | Generate timestamped database migration |
-| `spinx make:mail <Mod> <Name>` | Generate Mailable + view + queueable Job |
-| `spinx migrate [Name]` | Run pending database migrations |
-| `spinx module:migrate <Name>` | Run pending migrations for one module |
-| `spinx schema:compile` | Compile schema into `storage/cache/schema_columns.php` |
-| `spinx queue:work` | Poll and process database-backed job queue |
-| `spinx schedule:run` | Run all tasks in `schedule.php` due right now |
-| `spinx openapi:generate` | Generate OpenAPI 3.1 specification schema |
-| `spinx preview --mobile` | Open browser-based interactive mobile device container |
-| `spinx preview --android` | Open dev server on connected Android device/emulator |
-| `spinx preview --ios` | Open dev server on iOS Simulator (macOS + Xcode) |
-| `spinx preview --desktop` | Open dev server in native desktop webview window |
-| `spinx build:mobile --android` | Scaffold native Android shell in `mobile/android/` |
-| `spinx build:mobile --ios` | Scaffold native iOS shell in `mobile/ios/` |
-| `spinx build` | Production build: compiled assets + primed backend cache |
-
----
-
-## 🧪 Testing & Verification
-
-Run the test suite across all subsystems:
-
-```bash
-php tests/Integration/KernelIntegrationTest.php
-```
-
-All 92 integration assertions across Validation, Scheduler, Auth, Sessions, Routing DSL, and DBAL QueryBuilder pass with 100% success rate.
 
 ---
 
 ## 📄 License
 
-Spinx is open-sourced software licensed under the [MIT license](LICENSE).
+Spinx is open-sourced software licensed under the [MIT License](LICENSE).

@@ -95,6 +95,7 @@ final class ToolRegistry
         $this->register(new ListDirectoryTool($this->projectRoot));
         $this->register(new SpinxCommandTool($this->projectRoot));
         $this->register(new CodeAnalyzerTool($this->projectRoot));
+        $this->register(new ArchitectureValidatorTool());
         $this->register(new ProductionReadinessCheckTool($this->projectRoot, $this->continuity));
 
         if ($agentResolver !== null) {

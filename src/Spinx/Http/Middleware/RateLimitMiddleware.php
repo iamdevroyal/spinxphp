@@ -4,35 +4,45 @@ declare(strict_types=1);
 
 namespace Spinx\Http\Middleware;
 
-use Spinx\Http\RateLimit\{InMemoryRateLimitStore, RateLimitStore};
+use Spinx\Http\RateLimit\{InMemoryRateLimitStore, RateLimitStore, RedisRateLimitStore};
 use Spinx\Support\Config;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Config-driven rate limiting (see config/rate_limit.php) — attach per
- * route/module, not globally by default, same reasoning as
- * CorsMiddleware: a framework shouldn't assume every route needs the
- * same protection.
- *
- * The store is held in a STATIC property — deliberately, unlike the
- * request-scoped-by-default state-safety rule that applies to
- * app/Modules services (build spec §4). A rate limiter reset on every
- * request would rate-limit nothing at all; the whole point is a counter
- * that survives across requests within the same persistent worker. This
- * is the same category of legitimate framework-level static state as
- * Spinx\Database\Model's connection manager — see that class's own
- * docblock for the fuller reasoning, and InMemoryRateLimitStore's
- * docblock for the real, honestly-documented multi-worker limitation
- * this default store has.
+ * Config-driven, distributed rate limiting with persistent worker support.
  */
 final class RateLimitMiddleware implements MiddlewareInterface
 {
     private static ?RateLimitStore $store = null;
 
+    public static function setStore(?RateLimitStore $store): void
+    {
+        self::$store = $store;
+    }
+
+    public static function getStore(): RateLimitStore
+    {
+        if (self::$store !== null) {
+            return self::$store;
+        }
+
+        $driver = (string) Config::get('rate_limit.driver', env('RATE_LIMIT_DRIVER', 'auto'));
+
+        if ($driver === 'redis' || ($driver === 'auto' && extension_loaded('redis'))) {
+            try {
+                return self::$store = new RedisRateLimitStore();
+            } catch (\Throwable) {
+                // Fall back to in-memory store if Redis server is unreachable
+            }
+        }
+
+        return self::$store = new InMemoryRateLimitStore();
+    }
+
     public function process(Request $request, \Closure $next): Response
     {
-        $store = self::$store ??= new InMemoryRateLimitStore();
+        $store = self::getStore();
 
         $maxAttempts = (int) Config::instance()->get('rate_limit.max_attempts', 60);
         $decaySeconds = (int) Config::instance()->get('rate_limit.decay_seconds', 60);

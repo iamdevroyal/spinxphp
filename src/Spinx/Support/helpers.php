@@ -215,3 +215,50 @@ if (!function_exists('cache')) {
         return \Spinx\Cache\Cache::getManager();
     }
 }
+
+if (!function_exists('broadcast')) {
+    /**
+     * Broadcast an event or get a pending broadcast instance for a channel.
+     *
+     * Usage:
+     *   broadcast(new OrderCreated($order));
+     *   broadcast('orders.' . $id)->event('Updated', ['status' => 'paid']);
+     */
+    function broadcast(mixed $event = null): mixed
+    {
+        if ($event === null) {
+            return \Spinx\Broadcasting\Broadcast::getManager();
+        }
+
+        if ($event instanceof \Spinx\Broadcasting\ShouldBroadcast) {
+            \Spinx\Broadcasting\Broadcast::event($event);
+            return null;
+        }
+
+        if (is_string($event) || is_array($event)) {
+            return \Spinx\Broadcasting\Broadcast::channel($event);
+        }
+
+        return \Spinx\Broadcasting\Broadcast::getManager();
+    }
+}
+
+if (!function_exists('storage')) {
+    /**
+     * Get the Storage facade or a specific disk instance.
+     */
+    function storage(?string $disk = null): \Spinx\Filesystem\Driver\FilesystemDriverInterface
+    {
+        return \Spinx\Filesystem\Storage::disk($disk);
+    }
+}
+
+if (!function_exists('now')) {
+    /**
+     * Create a new DateTimeImmutable instance for the current time.
+     */
+    function now(string $timezone = 'UTC'): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('now', new \DateTimeZone($timezone));
+    }
+}

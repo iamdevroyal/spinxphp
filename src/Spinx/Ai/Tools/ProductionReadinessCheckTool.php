@@ -137,6 +137,44 @@ final class ProductionReadinessCheckTool implements ToolInterface
                         'message'  => 'Missing declare(strict_types=1); header.',
                     ];
                 }
+
+                // 5. Persistent Runtime Safety (No superglobals)
+                $totalChecks++;
+                if (preg_match('/(\$_SESSION|\$_GET|\$_POST|\$_REQUEST|\$_FILES)/', $content, $m)) {
+                    $issues[] = [
+                        'file'     => $relPath,
+                        'severity' => 'CRITICAL',
+                        'message'  => "Prohibited superglobal [{$m[1]}] detected. Causes cross-request state leaks in persistent runtimes. Use Spinx\\Http\\Request or SessionInterface.",
+                    ];
+                } else {
+                    $passedChecks++;
+                }
+
+                // 6. Prohibited Framework Imports (No Illuminate)
+                $totalChecks++;
+                if (preg_match('/use Illuminate\\\\/', $content)) {
+                    $issues[] = [
+                        'file'     => $relPath,
+                        'severity' => 'ERROR',
+                        'message'  => 'Prohibited Laravel Illuminate package import detected. Use native Spinx facades and abstractions.',
+                    ];
+                } else {
+                    $passedChecks++;
+                }
+
+                // 7. Async Job Contract Check
+                if (str_contains($relPath, '/Jobs/') || str_contains($relPath, '\\Jobs\\')) {
+                    $totalChecks++;
+                    if (!str_contains($content, 'implements Job') && !str_contains($content, 'implements \\Spinx\\Queue\\Job')) {
+                        $issues[] = [
+                            'file'     => $relPath,
+                            'severity' => 'ERROR',
+                            'message'  => 'Async Job must implement Spinx\\Queue\\Job interface (public function handle(): void).',
+                        ];
+                    } else {
+                        $passedChecks++;
+                    }
+                }
             }
 
             // 5. Check module.php routing & CSRF registration

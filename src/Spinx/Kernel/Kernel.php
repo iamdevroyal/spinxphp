@@ -90,9 +90,39 @@ final class Kernel
             \Spinx\Templating\View::setRenderer($this->container->get(\Spinx\Templating\TemplateRenderer::class));
         }
 
+        // Boot Redis subsystem
+        if ($this->container->has(\Spinx\Redis\RedisManager::class)) {
+            \Spinx\Redis\Redis::setManager($this->container->get(\Spinx\Redis\RedisManager::class));
+        }
+
         // Boot Cache subsystem
         if ($this->container->has(\Spinx\Cache\CacheManager::class)) {
             \Spinx\Cache\Cache::setManager($this->container->get(\Spinx\Cache\CacheManager::class));
+        }
+
+        // Boot Queue subsystem
+        if ($this->container->has(\Spinx\Queue\QueueManager::class)) {
+            \Spinx\Queue\Queue::setManager($this->container->get(\Spinx\Queue\QueueManager::class));
+        }
+
+        // Boot Broadcasting subsystem
+        if ($this->container->has(\Spinx\Broadcasting\BroadcastManager::class)) {
+            \Spinx\Broadcasting\Broadcast::setManager($this->container->get(\Spinx\Broadcasting\BroadcastManager::class));
+        }
+
+        // Boot Filesystem & Storage subsystem
+        if ($this->container->has(\Spinx\Filesystem\FilesystemManager::class)) {
+            \Spinx\Filesystem\Storage::setManager($this->container->get(\Spinx\Filesystem\FilesystemManager::class));
+        }
+
+        // Boot Vector search subsystem
+        if ($this->container->has(\Spinx\Database\Vector\VectorService::class)) {
+            \Spinx\Database\Vector\Vector::setService($this->container->get(\Spinx\Database\Vector\VectorService::class));
+        }
+
+        // Boot Application LLM subsystem
+        if ($this->container->has(\Spinx\Llm\LlmManager::class)) {
+            \Spinx\Llm\Llm::setManager($this->container->get(\Spinx\Llm\LlmManager::class));
         }
 
         // Boot AI Framework Builder
@@ -186,10 +216,7 @@ final class Kernel
         try {
             if ($this->container->has(\Spinx\Session\SessionInterface::class)) {
                 $session = $this->container->get(\Spinx\Session\SessionInterface::class);
-                $fileSession = $this->container->has(\Spinx\Session\FileSession::class)
-                    ? $this->container->get(\Spinx\Session\FileSession::class)
-                    : null;
-                $sessionMiddleware = new \Spinx\Session\SessionMiddleware($session, $fileSession);
+                $sessionMiddleware = new \Spinx\Session\SessionMiddleware($session);
 
                 return $sessionMiddleware->process($request, $dispatch);
             }
@@ -197,6 +224,11 @@ final class Kernel
             return $dispatch($request);
         } catch (\Throwable $e) {
             return $this->handleException($e, $request);
+        } finally {
+            // Guarantee zero cross-request memory leak in persistent workers
+            \Spinx\Http\Request::setCurrentRequest(null);
+            \Spinx\Security\Csrf::reset();
+            $this->requestScope->reset();
         }
     }
 
@@ -264,22 +296,31 @@ final class Kernel
         $routes = new RouteCollection();
         (new ModuleLoader($this->projectRoot))->loadRoutes($routes);
 
-        // Built-in System Routes: Spinx AI Builder Web Dashboard
-        $routes->add('__spinx_ai_dashboard', new \Symfony\Component\Routing\Route('/_spinx/ai', [
-            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'index'],
-        ], [], [], '', [], ['GET']));
+        // Built-in System Routes: Spinx AI Builder Web Dashboard (Local / Development only)
+        $aiEnabled = env('SPINX_AI_DASHBOARD_ENABLED', false) || env('APP_ENV', 'local') !== 'production';
+        if ($aiEnabled) {
+            $routes->add('__spinx_ai_dashboard', new \Symfony\Component\Routing\Route('/_spinx/ai', [
+                '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'index'],
+            ], [], [], '', [], ['GET']));
 
-        $routes->add('__spinx_ai_build', new \Symfony\Component\Routing\Route('/_spinx/ai/build', [
-            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'build'],
+            $routes->add('__spinx_ai_build', new \Symfony\Component\Routing\Route('/_spinx/ai/build', [
+                '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'build'],
+            ], [], [], '', [], ['POST']));
+
+            $routes->add('__spinx_ai_reason', new \Symfony\Component\Routing\Route('/_spinx/ai/reason', [
+                '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'reason'],
+            ], [], [], '', [], ['POST']));
+
+            $routes->add('__spinx_ai_context', new \Symfony\Component\Routing\Route('/_spinx/ai/context', [
+                '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'context'],
+            ], [], [], '', [], ['GET']));
+        }
+
+        // Built-in System Routes: Real-Time Broadcasting Authentication
+        $routes->add('__spinx_broadcasting_auth', new \Symfony\Component\Routing\Route('/_spinx/broadcasting/auth', [
+            '_controller'  => [\Spinx\Broadcasting\BroadcastAuthController::class, 'authenticate'],
+            '_csrf_exempt' => true,
         ], [], [], '', [], ['POST']));
-
-        $routes->add('__spinx_ai_reason', new \Symfony\Component\Routing\Route('/_spinx/ai/reason', [
-            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'reason'],
-        ], [], [], '', [], ['POST']));
-
-        $routes->add('__spinx_ai_context', new \Symfony\Component\Routing\Route('/_spinx/ai/context', [
-            '_controller' => [\Spinx\Ai\Web\AiDashboardController::class, 'context'],
-        ], [], [], '', [], ['GET']));
 
         return $routes;
     }

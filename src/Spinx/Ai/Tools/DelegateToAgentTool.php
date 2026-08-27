@@ -33,7 +33,7 @@ final class DelegateToAgentTool implements ToolInterface
 
     public function getDescription(): string
     {
-        return 'Delegate a specialized task to a Spinx core agent (architect, database, routing, frontend, security, devops). The sub-agent executes with its specialized domain knowledge and updates continuity memory.';
+        return 'Delegate a specialized task to a Spinx core agent (architect, database, routing, frontend, security, devops, async, storage_vector). The sub-agent executes with its specialized domain knowledge and updates continuity memory.';
     }
 
     public function getInputSchema(): array
@@ -43,7 +43,7 @@ final class DelegateToAgentTool implements ToolInterface
             'properties' => [
                 'agent' => [
                     'type'        => 'string',
-                    'enum'        => ['architect', 'database', 'routing', 'frontend', 'security', 'devops'],
+                    'enum'        => ['architect', 'database', 'routing', 'frontend', 'security', 'devops', 'async', 'storage_vector'],
                     'description' => 'Target agent specialized for the task',
                 ],
                 'task'  => [

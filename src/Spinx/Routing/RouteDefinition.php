@@ -59,6 +59,23 @@ final class RouteDefinition
         return $this->controller($action);
     }
 
+    private bool $csrfExempt = false;
+
+    /**
+     * Exempt this route from CSRF verification (useful for external webhooks).
+     */
+    public function withoutCsrf(bool $exempt = true): static
+    {
+        $this->csrfExempt = $exempt;
+
+        return $this;
+    }
+
+    public function isCsrfExempt(): bool
+    {
+        return $this->csrfExempt;
+    }
+
     /** @return string[] */
     public function getMiddlewareAliases(): array
     {

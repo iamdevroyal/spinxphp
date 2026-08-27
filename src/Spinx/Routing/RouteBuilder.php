@@ -96,12 +96,18 @@ final class RouteBuilder
                 $definition->getMiddlewareAliases()
             );
 
+            $defaults = [
+                '_controller' => $controllerClass,
+                '_middleware' => $middlewareClasses,
+            ];
+
+            if ($definition->isCsrfExempt()) {
+                $defaults['_csrf_exempt'] = true;
+            }
+
             $route = new SymfonyRoute(
                 $effectivePrefix . $definition->path,
-                defaults: [
-                    '_controller' => $controllerClass,
-                    '_middleware' => $middlewareClasses,
-                ],
+                defaults: $defaults,
                 methods: [$definition->method],
             );
 

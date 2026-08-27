@@ -124,5 +124,25 @@ return static function (ContainerConfigurator $configurator): void {
     $services->set(\Spinx\Ai\AiManager::class)
         ->args(['%spinx.project_root%'])
         ->public();
+
+    // Redis subsystem
+    $services->set(\Spinx\Redis\RedisManager::class)
+        ->public();
+
+    // Broadcasting subsystem
+    $services->set(\Spinx\Broadcasting\BroadcastManager::class)
+        ->public();
+
+    // Filesystem subsystem
+    $services->set(\Spinx\Filesystem\FilesystemManager::class)
+        ->public();
+
+    // Vector search subsystem
+    $services->set(\Spinx\Database\Vector\VectorService::class)
+        ->public();
+
+    // Application LLM subsystem
+    $services->set(\Spinx\Llm\LlmManager::class)
+        ->public();
 };
 

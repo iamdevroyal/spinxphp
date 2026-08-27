@@ -7,7 +7,7 @@ namespace Spinx\Ai\Guard;
 use Spinx\Ai\Continuity\ContinuityTracker;
 
 /**
- * Security and usage guard protecting the Spinx AI Framework Builder from misuse.
+ * Security, usage, and architectural invariant guard protecting the Spinx AI Framework Builder from misuse.
  */
 final class AiGuard
 {
@@ -35,6 +35,55 @@ final class AiGuard
         }
 
         self::checkRateLimit($continuity);
+    }
+
+    /**
+     * Inspect a developer prompt for non-Spinx / anti-pattern requests and return actionable guidance.
+     *
+     * @return array<int, array{pattern: string, warning: string, guidance: string}>
+     */
+    public static function detectArchitecturalViolations(string $prompt): array
+    {
+        $violations = [];
+        $lower = strtolower($prompt);
+
+        // 1. Global Models outside DDD
+        if (preg_match('/(app\/models|in app\/models|create a model in app\/models)/i', $prompt)) {
+            $violations[] = [
+                'pattern'  => 'app/Models/',
+                'warning'  => 'Spinx enforces strict Domain-Driven Design (DDD). Loose models in app/Models/ are not permitted.',
+                'guidance' => 'Models belong in app/Modules/<ModuleName>/Infrastructure/Persistence/Models/<ModelName>.php, with pure business entities in app/Modules/<ModuleName>/Domain/Entities/<EntityName>.php.',
+            ];
+        }
+
+        // 2. Global Route Files
+        if (preg_match('/(routes\/web\.php|routes\/api\.php|in routes\/web|in routes\/api)/i', $prompt)) {
+            $violations[] = [
+                'pattern'  => 'routes/web.php',
+                'warning'  => 'Spinx does not use global route files like routes/web.php or routes/api.php.',
+                'guidance' => 'All module routes must be declared in app/Modules/<ModuleName>/module.php using Spinx\\Routing\\Route.',
+            ];
+        }
+
+        // 3. Superglobals in Persistent Runtimes
+        if (str_contains($lower, '$_session') || str_contains($lower, 'session_start()')) {
+            $violations[] = [
+                'pattern'  => '$_SESSION / session_start()',
+                'warning'  => 'Raw PHP session superglobals cause critical state leakage across requests in persistent workers (RoadRunner / Swoole).',
+                'guidance' => 'Use Spinx\\Auth\\Auth facade (Auth::check(), Auth::user()) or inject Spinx\\Session\\SessionInterface.',
+            ];
+        }
+
+        // 4. Laravel Service Providers / Artisan
+        if (preg_match('/(serviceprovider|service provider|artisan make:|illuminate\\\\)/i', $prompt)) {
+            $violations[] = [
+                'pattern'  => 'Laravel ServiceProvider / Artisan',
+                'warning'  => 'Spinx does not use Laravel ServiceProviders or Illuminate packages.',
+                'guidance' => 'Register dependency injection services in app/Modules/<ModuleName>/module.php under the "services" key using Symfony DI ContainerBuilder.',
+            ];
+        }
+
+        return $violations;
     }
 
     /**

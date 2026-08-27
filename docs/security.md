@@ -1,74 +1,132 @@
-# Security & Session-Backed CSRF
+# Production Security & Hardening
 
-Spinx delivers persistent-worker-safe security subsystems including **session-backed CSRF protection with token rotation**, session fixation defense, and auth middleware guards.
-
----
-
-## 1. Session-Backed CSRF Protection
-
-Spinx CSRF protection is tied directly to the user's active session (`SessionInterface` under `_token`):
-
-1. **Generation:** When a session begins or regenerates, a cryptographically secure 64-character hex token is assigned.
-2. **Verification:** On state-changing HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`), `CsrfMiddleware` checks the submitted token against the session token.
-3. **Cookie Synchronization:** On every response, `CsrfMiddleware` synchronizes the active token to a readable `XSRF-TOKEN` cookie, allowing frontend JavaScript clients (axios/fetch/Vue/React) to read and send it automatically in headers (`X-CSRF-TOKEN` or `X-XSRF-TOKEN`).
+Spinx is built with a security-first philosophy across every subsystem. This guide covers the attack vectors addressed at the framework level — so developers building on Spinx are not exposed to common PHP vulnerabilities by default.
 
 ---
 
-## 2. Using `@csrf` in Templates
+## 🛡️ 1. Cryptographic Queue Payload Signing (Anti-RCE)
 
-Include the `@csrf` directive in every HTML form:
+**Attack:** PHP Object Injection via unserialized queue payloads leading to Remote Code Execution (RCE).
 
-```html
-<form method="POST" action="/todos">
-    @csrf
-    <input type="text" name="title" placeholder="New todo item" required />
-    <button type="submit">Create Todo</button>
-</form>
-```
-
-This compiles to:
-```html
-<input type="hidden" name="_token" value="4f8a9e7d..." />
-```
-
----
-
-## 3. Token Rotation on Authentication
-
-To prevent session fixation and CSRF hijacking, regenerate the token during login and logout:
+**Defense:** Every job pushed to the queue is serialized and then signed with `HMAC-SHA256` using the application's `APP_KEY`. The worker daemon verifies the signature before calling `unserialize()`. Forged or tampered payloads are rejected.
 
 ```php
-use Spinx\Security\Csrf;
+// DO: Use Spinx Queue API — signing is automatic
+Queue::push(new ProcessInvoiceJob($id));
 
-// Regenerate upon login:
-Csrf::regenerateToken($session);
+// NEVER manually deserialize queue payloads
+// unserialize($rawPayload) ← FORBIDDEN — HMAC verification bypassed
 ```
 
 ---
 
-## 4. Auth & Guest Middleware Guards
+## 🛡️ 2. Path Traversal & Null-Byte Injection Defense (Storage)
 
-Spinx includes built-in middleware for guarding routes:
+**Attack:** `Storage::get('../../.env')` — reading arbitrary filesystem files outside the storage root.
+
+**Defense:** `LocalFilesystemDriver::fullPath()` strips null bytes, normalizes directory separators, and throws `\InvalidArgumentException` immediately if any `..` segment is detected. Paths are jail-rooted to the configured disk root.
 
 ```php
-// app/Modules/Auth/module.php
+// BLOCKED by framework — throws InvalidArgumentException:
+Storage::get('../../../.env');
+Storage::put("..\\..\\.htaccess", "deny from all");
+```
+
+---
+
+## 🛡️ 3. Secure CORS Origin Matching
+
+**Attack:** `Access-Control-Allow-Origin: *` combined with `Access-Control-Allow-Credentials: true` allows any origin to make credentialed cross-origin requests, effectively bypassing CSRF protections.
+
+**Defense:** Spinx's `CorsMiddleware` enforces an invariant: if `allow_credentials: true`, wildcard `*` is **never** reflected as the origin. Only origins explicitly listed in `allowed_origins` config may be echoed back with credentials.
+
+```php
+// config/cors.php
 return [
-    'middlewares' => static function ($r): void {
-        $r->registerMiddleware('auth', \Spinx\Auth\Middleware\AuthMiddleware::class);
-        $r->registerMiddleware('guest', \Spinx\Auth\Middleware\GuestMiddleware::class);
-        $r->registerMiddleware('csrf', \Spinx\Http\Middleware\CsrfMiddleware::class);
-    },
-
-    'routes' => static function (RouteBuilder $routes): void {
-        // Authenticated users only
-        Route::get(['auth.dashboard', '/dashboard'])
-            ->middleware(['auth', 'csrf'])
-            ->controller('auth@dashboard');
-
-        // Unauthenticated guests only
-        Route::get(['auth.login', '/login'])
-            ->middleware(['guest', 'csrf'])
-            ->controller('auth@showLogin');
-    },
+    'allowed_origins'  => ['https://app.mysite.com', 'https://admin.mysite.com'],
+    'allow_credentials'=> true,
+    // wildcard '*' combined with credentials is auto-blocked
 ];
+```
+
+---
+
+## 🛡️ 4. CSRF Token Coroutine Isolation (Persistent Worker Safety)
+
+**Attack:** In persistent workers (RoadRunner/Swoole), static CSRF tokens from one request bleed into the next if not reset, allowing cross-request forgery.
+
+**Defense:** `Csrf::reset()` is automatically called in the `finally` block of every `Kernel::handle()` invocation. The CSRF token is also isolated per Swoole coroutine ID so concurrent coroutines can never share tokens.
+
+---
+
+## 🛡️ 5. Production AI Dashboard Route Shielding
+
+**Attack:** Unauthenticated access to `/_spinx/ai/*` routes in production, exposing internal AI tools, build capabilities, or framework internals.
+
+**Defense:** AI dashboard routes are entirely disabled in `APP_ENV=production` unless explicitly authorized:
+
+```env
+# .env — opt-in only when intentionally exposing the AI dashboard (behind auth)
+SPINX_AI_DASHBOARD_ENABLED=true
+```
+
+---
+
+## 🛡️ 6. SQL Injection Hardening in QueryBuilder
+
+**Attack:** Passing user-controlled strings as `$direction` in `QueryBuilder::orderBy()` to inject arbitrary SQL.
+
+**Defense:** Direction is normalized to a strict whitelist: `strtoupper(trim($direction)) === 'DESC' ? 'DESC' : 'ASC'`. Any other value — including `ASC; DROP TABLE users;` — defaults to `ASC`.
+
+---
+
+## 🛡️ 7. Cryptographic Webhook Signature Verification
+
+Verify incoming webhook signatures from Stripe, GitHub, Slack, or any HMAC-provider:
+
+```php
+use Spinx\Webhooks\HmacWebhookVerifier;
+
+$verifier = new HmacWebhookVerifier(secret: env('STRIPE_WEBHOOK_SECRET'));
+
+// Stripe-style: "t=...,v1=..." timestamped signature header
+if (!$verifier->verifyStripe($request, maxAgeSeconds: 300)) {
+    return response()->json(['error' => 'Invalid signature'], 403);
+}
+
+// Generic HMAC-SHA256 header verification
+if (!$verifier->verify($request, headerName: 'X-Hub-Signature-256')) {
+    abort(403);
+}
+```
+
+> **Important:** Always call `Request::rawBody()` before reading `$request->json()` or `$request->all()`. Parsing the request body before verification changes the raw content hash.
+
+---
+
+## 🛡️ 8. Route CSRF Exemptions
+
+Webhook-receiving endpoints must be excluded from CSRF protection:
+
+```php
+// app/Modules/Billing/module.php
+RouteBuilder::post('/webhooks/stripe', StripeWebhookController::class)
+    ->withoutCsrf(); // Excludes route from CSRF middleware validation
+```
+
+---
+
+## 🔒 Security Headers Reference
+
+Add security headers globally in your kernel middleware:
+
+```php
+$response->headers->set('X-Frame-Options', 'DENY');
+$response->headers->set('X-Content-Type-Options', 'nosniff');
+$response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+$response->headers->set('Permissions-Policy', 'geolocation=(), camera=()');
+$response->headers->set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'nonce-{$nonce}'; style-src 'self' 'unsafe-inline';"
+);
 ```

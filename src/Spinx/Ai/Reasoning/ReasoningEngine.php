@@ -75,11 +75,17 @@ PROMPT;
             if (preg_match('/\{[\s\S]*\}/', $rawText, $matches)) {
                 $decoded = json_decode($matches[0], true);
                 if (is_array($decoded)) {
+                    $suggestions = $decoded['suggestions'] ?? [];
+                    $violations = \Spinx\Ai\Guard\AiGuard::detectArchitecturalViolations($prompt);
+                    foreach ($violations as $v) {
+                        $suggestions[] = "⚠️ Architectural Warning ({$v['pattern']}): {$v['warning']} -> {$v['guidance']}";
+                    }
+
                     return new ReasoningResult(
                         prompt: $prompt,
                         analysis: $decoded['analysis'] ?? 'Analyzed project structure for strict DDD build.',
                         questions: $decoded['questions'] ?? [],
-                        suggestions: $decoded['suggestions'] ?? [],
+                        suggestions: $suggestions,
                         inspectedContext: $context,
                         proposedPlan: $decoded['proposedPlan'] ?? [],
                         readyToBuild: empty($decoded['questions']) && ($decoded['readyToBuild'] ?? true),
@@ -143,6 +149,11 @@ PROMPT;
             'Use strict DDD layered structure (Domain, Application, Infrastructure).',
             'Enforce Session-backed CSRF on state mutation routes with @csrf.',
         ];
+
+        $violations = \Spinx\Ai\Guard\AiGuard::detectArchitecturalViolations($prompt);
+        foreach ($violations as $v) {
+            $suggestions[] = "⚠️ Architectural Warning ({$v['pattern']}): {$v['warning']} -> {$v['guidance']}";
+        }
 
         if (!$hasAuth && (str_contains(strtolower($prompt), 'user') || str_contains(strtolower($prompt), 'auth'))) {
             $suggestions[] = 'Integrate with Auth subsystem using Spinx AuthMiddleware.';
