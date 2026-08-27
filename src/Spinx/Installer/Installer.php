@@ -80,7 +80,7 @@ final class Installer
 
         // ── 2. Frontend ──────────────────────────────────────────────────
         // SPINX_FRONTEND env: 'vue' | 'react' | 'none'
-        // Passed by the global installer (spinx/installer) when the user
+        // Passed by the global installer (spinxphp/installer) when the user
         // runs: spinx new my-app --frontend=vue --no-interaction
         $envFrontend = strtolower(trim((string) (getenv('SPINX_FRONTEND') ?: '')));
 

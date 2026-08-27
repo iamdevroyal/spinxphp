@@ -48,7 +48,7 @@ Spinx pairs extreme execution speed with **Kernel-Enforced Domain-Driven Design 
 Install the official Spinx installer globally once:
 
 ```bash
-composer global require spinx/installer
+composer global require spinxphp/installer
 ```
 
 Then create new projects from anywhere:

@@ -5,7 +5,7 @@
 Install the Spinx global installer once:
 
 ```bash
-composer global require spinx/installer
+composer global require spinxphp/installer
 ```
 
 Then create any new project from anywhere:
