@@ -362,9 +362,20 @@ final class Installer
 
     private function printBanner(): void
     {
+        $logo = <<<'LOGO'
+  ____        _           
+ / ___| _ __ (_)_ __ __  __
+ \___ \| '_ \| | '_ \\ \/ /
+  ___) | |_) | | | | |>  < 
+ |____/| .__/|_|_| |_/_/\_\
+       |_|
+LOGO;
         $this->newLine();
-        $this->writeln($this->bold($this->pink('  ░ Spinx Framework — Interactive Installer')));
-        $this->writeln($this->dim('  ─────────────────────────────────────────────'));
+        $this->writeln($this->bold($this->pink($logo)));
+        $this->newLine();
+        $this->writeln($this->bold('  Spinx PHP Framework'));
+        $this->writeln($this->dim('  Created by Njoku Royal Nnaemeka (@iamdevroyal)'));
+        $this->writeln($this->dim('  High-Performance Persistent Workers • Enforced DDD • Reactive Islands'));
         $this->newLine();
         $this->writeln($this->dim('  Answer a few questions to configure your new project.'));
         $this->writeln($this->dim('  Press [Enter] to accept the default shown in [brackets].'));
@@ -379,23 +390,32 @@ final class Installer
         bool $migrated,
     ): void {
         $this->newLine();
-        $this->writeln($this->bold($this->green('  ✓ Your Spinx application is ready!')));
+        // ── Step-by-step checkmark list (matching visual design)
+        $this->writeln($this->green('  ✓ ') . 'Application name: ' . $this->bold($appName));
+        $this->writeln($this->green('  ✓ ') . 'Spinx version: ' . $this->bold('1.0.17'));
+        $this->writeln($this->green('  ✓ ') . 'Installing dependencies');
+        $this->writeln($this->green('  ✓ ') . 'Generating application key');
+        $this->writeln($this->green('  ✓ ') . 'Creating .env');
+        $this->writeln($this->green('  ✓ ') . 'Setting application configuration');
+        if ($migrated) {
+            $this->writeln($this->green('  ✓ ') . 'Running migrations');
+        }
+        $this->writeln($this->green('  ✓ ') . 'Application created');
         $this->newLine();
-        $this->writeln($this->dim('  ─────────────────────────────────────────────'));
-        $this->writeln("    App name  : {$appName}");
-        $this->writeln("    URL       : {$appUrl}");
-        $this->writeln("    Frontend  : {$frontend}");
-        $this->writeln("    Runtime   : {$driver}");
-        $this->writeln($this->dim('  ─────────────────────────────────────────────'));
+        $this->writeln($this->bold($this->green('  Spinx application created successfully!')));
         $this->newLine();
         $this->writeln($this->bold('  Next steps:'));
-        $this->writeln($this->dim('    cd frontend && npm install'));
+        $this->newLine();
+        $this->writeln($this->pink('    cd ' . basename($this->projectRoot)));
+        if ($frontend !== 'none') {
+            $this->writeln($this->dim('    cd frontend && npm install && cd ..'));
+        }
         if (!$migrated) {
             $this->writeln($this->dim('    php spinx migrate'));
         }
         $this->writeln($this->pink('    php spinx serve'));
         $this->newLine();
-        $this->writeln($this->dim('  Docs: https://spinxphp.pages.dev/docs'));
+        $this->writeln($this->dim('  Docs  : https://spinxphp.pages.dev/docs'));
         $this->writeln($this->dim('  GitHub: https://github.com/iamdevroyal/spinxphp'));
         $this->newLine();
     }
