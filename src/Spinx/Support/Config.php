@@ -71,6 +71,26 @@ final class Config
         return self::$instance->getItem($key, $default);
     }
 
+    /** Set a configuration value at runtime using dot notation (e.g. Config::set('auth.api.jwt_secret', 'xyz')). */
+    public static function set(string $key, mixed $value): void
+    {
+        if (self::$instance === null) {
+            self::$instance = new self('');
+        }
+
+        self::$instance->setItem($key, $value);
+    }
+
+    /** Check if a configuration key exists using dot notation. */
+    public static function has(string $key): bool
+    {
+        if (self::$instance === null) {
+            return false;
+        }
+
+        return self::$instance->hasItem($key);
+    }
+
     public function getItem(string $key, mixed $default = null): mixed
     {
         $segments = explode('.', $key);
@@ -87,6 +107,38 @@ final class Config
         return $value;
     }
 
+    public function setItem(string $key, mixed $value): void
+    {
+        $segments = explode('.', $key);
+        $target = &$this->items;
+
+        foreach ($segments as $i => $segment) {
+            if ($i === count($segments) - 1) {
+                $target[$segment] = $value;
+            } else {
+                if (!isset($target[$segment]) || !is_array($target[$segment])) {
+                    $target[$segment] = [];
+                }
+                $target = &$target[$segment];
+            }
+        }
+    }
+
+    public function hasItem(string $key): bool
+    {
+        $segments = explode('.', $key);
+        $value = $this->items;
+
+        foreach ($segments as $segment) {
+            if (!is_array($value) || !array_key_exists($segment, $value)) {
+                return false;
+            }
+
+            $value = $value[$segment];
+        }
+
+        return true;
+    }
 
     /** @return array<string, mixed> */
     public function all(): array
@@ -94,3 +146,4 @@ final class Config
         return $this->items;
     }
 }
+

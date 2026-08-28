@@ -19,7 +19,7 @@ use Spinx\Database\Model;
  * Columns: id, tokenable_type, tokenable_id, name, token (sha256), abilities (json),
  *          last_used_at, expires_at, created_at, updated_at
  */
-class PersonalAccessToken extends Model
+class PersonalAccessToken extends Model implements PersonalAccessTokenInterface
 {
     protected static string $table = 'personal_access_tokens';
 

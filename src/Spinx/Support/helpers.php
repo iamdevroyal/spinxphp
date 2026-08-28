@@ -37,13 +37,25 @@ if (!function_exists('env')) {
 
 if (!function_exists('config')) {
     /**
-     * Dot-notation config access: config('services.paystack.secret_key').
-     * Backed by every file in config/ except container.php — see
-     * Spinx\Support\Config's own docblock.
+     * Dot-notation config access:
+     *   - config('app.name') -> gets value
+     *   - config(['app.name' => 'Custom App']) -> sets value
+     *   - config() -> returns Config instance
      */
-    function config(string $key, mixed $default = null): mixed
+    function config(string|array|null $key = null, mixed $default = null): mixed
     {
-        return Config::instance()->get($key, $default);
+        if ($key === null) {
+            return Config::instance();
+        }
+
+        if (is_array($key)) {
+            foreach ($key as $k => $v) {
+                Config::set($k, $v);
+            }
+            return null;
+        }
+
+        return Config::get($key, $default);
     }
 }
 

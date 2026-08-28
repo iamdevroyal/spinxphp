@@ -24,12 +24,13 @@ namespace Spinx\Auth\Token;
 final class NewAccessToken
 {
     /**
-     * @param PersonalAccessToken $accessToken The persisted token record (no plaintext)
+     * @param PersonalAccessTokenInterface|PersonalAccessToken $accessToken The persisted token record (no plaintext)
      * @param string $plainTextToken The one-time plaintext bearer string
      */
     public function __construct(
-        public readonly PersonalAccessToken $accessToken,
+        public readonly PersonalAccessTokenInterface|PersonalAccessToken $accessToken,
         public readonly string $plainTextToken,
     ) {
     }
 }
+
