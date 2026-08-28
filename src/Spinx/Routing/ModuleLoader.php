@@ -133,6 +133,18 @@ final class ModuleLoader
             'ability',
             \Spinx\Auth\Middleware\RequireTokenAbility::class,
         );
+        $this->aliasRegistry->registerMiddleware(
+            'idempotent',
+            \Spinx\Http\Middleware\IdempotencyMiddleware::class,
+        );
+        $this->aliasRegistry->registerMiddleware(
+            'cache.headers',
+            \Spinx\Http\Middleware\HttpCacheMiddleware::class,
+        );
+        $this->aliasRegistry->registerMiddleware(
+            'api.errors',
+            \Spinx\Http\Middleware\ApiErrorHandlerMiddleware::class,
+        );
         // ──────────────────────────────────────────────────────────────────────
 
         foreach ($this->discoverModules() as $moduleDir) {

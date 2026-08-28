@@ -52,9 +52,13 @@ You configure all authentication and security concerns for Spinx modules, includ
 - NEVER combine `allowed_origins: ['*']` with `allow_credentials: true` (security vulnerability).
 - Include `Authorization` in `allowed_headers` for bearer token support.
 
-### Rate Limiting
+### Rate Limiting & Idempotency
 - Apply `RateLimitMiddleware` to auth endpoints (login, register, token refresh).
 - Use Redis-backed rate limits in production multi-worker environments.
+- Protect sensitive mutation routes (payments, order creation, AI generation triggers) with the `idempotent` middleware alias to guard against network retry duplicates.
+
+### RFC 7807 API Error Handling
+- Wrap API route groups or configure `api.errors` middleware alias to ensure all uncaught exceptions emit standardized RFC 7807 Problem Details JSON (`status`, `title`, `detail`, `code`, `request_id`).
 PROMPT;
     }
 }

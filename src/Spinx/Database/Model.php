@@ -132,6 +132,21 @@ abstract class Model
         return static::query()->get();
     }
 
+    public static function paginate(int $perPage = 15, int $page = 1): Paginator
+    {
+        return static::query()->paginate($perPage, $page);
+    }
+
+    public static function cursorPaginate(
+        int $perPage = 15,
+        string $cursorCol = 'id',
+        ?string $cursor = null,
+        string $direction = 'asc',
+    ): \Spinx\Database\Pagination\CursorPaginator {
+        return static::query()->cursorPaginate($perPage, $cursorCol, $cursor, $direction);
+    }
+
+
     /** @param array<string, mixed> $attributes */
     public static function create(array $attributes): static
     {

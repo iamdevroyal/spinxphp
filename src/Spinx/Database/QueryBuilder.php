@@ -463,6 +463,52 @@ final class QueryBuilder
         return new Paginator($items, $total, $perPage, $page);
     }
 
+    /**
+     * Perform cursor-based pagination for high-scale feeds and infinite scrolling (O(1) complexity).
+     *
+     * @param int $perPage Number of items to fetch per page
+     * @param string $cursorCol The unique column used as the cursor anchor (default: 'id')
+     * @param string|null $cursor Encoded cursor string from previous request
+     * @param string $direction Sort direction ('asc' or 'desc')
+     */
+    public function cursorPaginate(
+        int $perPage = 15,
+        string $cursorCol = 'id',
+        ?string $cursor = null,
+        string $direction = 'asc',
+    ): \Spinx\Database\Pagination\CursorPaginator {
+        $decoded = \Spinx\Database\Pagination\Cursor::decode($cursor);
+
+        $activeCol       = $decoded !== null ? $decoded->column : $cursorCol;
+        $activeDirection = $decoded !== null ? $decoded->direction : $direction;
+
+        if ($decoded !== null) {
+            $operator = strtolower($activeDirection) === 'desc' ? '<' : '>';
+            $this->where($activeCol, $operator, $decoded->value);
+        }
+
+        $this->orderBy($activeCol, $activeDirection);
+        $this->limit($perPage + 1);
+
+        $results = $this->get();
+        $hasMore = count($results) > $perPage;
+
+        if ($hasMore) {
+            $items = array_slice($results, 0, $perPage);
+        } else {
+            $items = $results;
+        }
+
+        return new \Spinx\Database\Pagination\CursorPaginator(
+            items: $items,
+            perPage: $perPage,
+            cursorCol: $activeCol,
+            direction: $activeDirection,
+            hasMore: $hasMore,
+        );
+    }
+
+
     /** @param array<string, mixed> $attributes @return int|string Last insert ID */
     public function insert(array $attributes): int|string
     {

@@ -285,10 +285,15 @@ return [
 | **Redis** | `Spinx\Redis\Redis` | `Redis::connection('cache')->get($key)`, `Redis::setex($k, $ttl, $v)` |
 | **Auth (Session)** | `Spinx\Auth\Auth` | `Auth::attempt(['email' => $e, 'password' => $p])`, `Auth::check()`, `Auth::user()`, `Auth::id()`, `Auth::logout()` |
 | **API Tokens (PAT)** | `Spinx\Auth\Token\Token` | `Token::createToken($user, 'device', ['*'])`, `Token::findToken($rawBearer)`, `Token::revokeAll($user)` |
-| **JWT Auth** | `Spinx\Auth\Jwt\Jwt` | `Jwt::encode($user, 3600, ['role' => 'admin'])`, `Jwt::decode($token)`, `Jwt::tryDecode($token)`, `Jwt::createRefreshToken($user)` |
-| **Webhooks** | `Spinx\Http\Webhook\HmacWebhookVerifier` | `(new HmacWebhookVerifier())->verify(Request::rawBody(), $sigHeader, $secret)` |
+| **API Resources** | `Spinx\Http\Resources\JsonResource` | `ProjectResource::make($model)`, `ProjectResource::collection($list)`, `$this->when($cond, $val)`, `$this->whenLoaded('relation')` |
+| **Problem Details** | `Spinx\Http\Exceptions\ProblemDetails` | `ProblemDetails::notFound($msg)`, `ProblemDetails::validation($errors)`, `throw new NotFoundHttpException()` |
+| **Cursor Pagination** | `Spinx\Database\Pagination\Cursor` | `Model::cursorPaginate(15, 'id', $cursor)`, `QueryBuilder::cursorPaginate()` (O(1) infinite scroll queries) |
+| **API Idempotency** | `Spinx\Http\Middleware\IdempotencyMiddleware` | `->middleware('idempotent')` (caches mutations by `Idempotency-Key` for 24h, safe payment & AI retries) |
+| **HTTP 304 Caching**| `Spinx\Http\Middleware\HttpCacheMiddleware` | `->middleware('cache.headers:max_age=3600,etag')` (sub-0.1ms 304 Not Modified responses) |
+| **Interactive Docs** | `Spinx\OpenApi\ApiDocsController` | `Route::get('/api/docs', [ApiDocsController::class, 'docs'])` (Scalar API reference sandbox) |
 
 ---
+
 
 ## 5. Explicit Anti-Patterns & Prohibitions (STRICT)
 
@@ -476,4 +481,100 @@ return [
     'allow_credentials' => true,
 ];
 ```
+
+---
+
+## 8. Standalone API Backend Subsystems (v1.0.24+)
+
+### 8.1 API Resources (`JsonResource` & `ResourceCollection`)
+Always use `JsonResource` instead of returning raw arrays or raw ActiveRecord models in API controllers. This prevents data leaks and enforces clean API contracts.
+
+```php
+namespace App\Modules\Projects\Infrastructure\Http\Resources;
+
+use Spinx\Http\Resources\JsonResource;
+
+final class ProjectResource extends JsonResource
+{
+    public function toArray(): array
+    {
+        return [
+            'id'          => $this->id,
+            'title'       => $this->title,
+            'word_count'  => $this->word_count,
+            'author'      => $this->whenLoaded('author', fn() => new UserResource($this->author)),
+            'secret_notes'=> $this->when($this->isOwner(), $this->secret_notes),
+            'created_at'  => $this->created_at?->format('c'),
+        ];
+    }
+}
+
+// In ApiProjectController:
+public function show(int $id): Response
+{
+    $project = Project::findOrFail($id);
+    return ProjectResource::make($project)->response();
+}
+
+public function index(): Response
+{
+    $projects = Project::cursorPaginate(20);
+    return ProjectResource::collection($projects)->response();
+}
+```
+
+### 8.2 RFC 7807 Standardized JSON Problem Details & Exceptions
+When handling API requests, throw typed `HttpException` instances or use `ProblemDetails`. The `api.errors` middleware automatically converts uncaught exceptions to standard JSON problem details:
+
+```php
+use Spinx\Http\Exceptions\{NotFoundHttpException, ForbiddenHttpException, BadRequestHttpException};
+
+if (!$project) {
+    throw new NotFoundHttpException('Project not found or was deleted.', errorCode: 'PROJECT_NOT_FOUND');
+}
+
+if (!$user->can('edit', $project)) {
+    throw new ForbiddenHttpException('You do not own this project.', errorCode: 'FORBIDDEN_PROJECT_ACCESS');
+}
+```
+
+### 8.3 Cursor-Based Pagination (O(1) Scale)
+For mobile feeds and infinite scrolling APIs, use `cursorPaginate()` rather than `paginate()`:
+
+```php
+// In Controller:
+$cursor = Request::input('cursor'); // e.g. "eyJpZCI6MTB9"
+$feed   = Novel::cursorPaginate(perPage: 20, cursorCol: 'id', cursor: $cursor, direction: 'desc');
+
+return NovelResource::collection($feed)->response();
+// Output envelope includes:
+// { "data": [...], "pagination": { "per_page": 20, "next_cursor": "...", "has_more": true } }
+```
+
+### 8.4 Mutation Idempotency (`idempotent` Middleware)
+Protect critical mutations (payment charges, novel publish triggers, AI generation runs) against network retry duplicates:
+
+```php
+// module.php
+$routes->post('/api/v1/chapters/{id}/generate', [ApiChapterController::class, 'generateAi'])
+    ->middleware(['auth:api', 'idempotent']);
+```
+
+### 8.5 HTTP 304 ETag Caching (`cache.headers` Middleware)
+Serve high-volume GET endpoints at >50k req/sec with sub-0.1ms 304 responses:
+
+```php
+// module.php
+$routes->get('/api/v1/chapters/{id}', [ApiChapterController::class, 'show'])
+    ->middleware('cache.headers:max_age=3600,etag');
+```
+
+### 8.6 Interactive Scalar Documentation (`/api/docs`)
+Serve the interactive API documentation sandbox in dev mode:
+
+```php
+// module.php (or Shared module)
+$routes->get('/api/docs', [\Spinx\OpenApi\ApiDocsController::class, 'docs']);
+```
+
 
