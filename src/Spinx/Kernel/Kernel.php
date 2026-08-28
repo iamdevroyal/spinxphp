@@ -24,7 +24,7 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
  */
 final class Kernel
 {
-    public const VERSION = '1.0.17';
+    public const VERSION = '1.0.20';
 
     private ContainerInterface $container;
     private RouteCollection $routes;

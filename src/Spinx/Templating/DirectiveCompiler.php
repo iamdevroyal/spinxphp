@@ -71,18 +71,19 @@ final class DirectiveCompiler
     {
         return (string) preg_replace(
             '/{{\s*((?:(?!}}).)+?)\s*}}/s',
-            '<?php echo htmlspecialchars((string) ($1), ENT_QUOTES, \'UTF-8\'); ?>',
+            '<?php echo htmlspecialchars(is_array($1 ?? null) ? implode(\', \', (array) ($1)) : (string) ($1 ?? \'\'), ENT_QUOTES, \'UTF-8\'); ?>',
             $source
         );
     }
 
-    /** Directives with no parenthesized argument list — @else, @endif, @endforeach. */
+    /** Directives with no parenthesized argument list — @else, @endif, @endforeach, @enderror. */
     private function compileBareDirectives(string $source): string
     {
         $map = [
             '/@else\b/' => '<?php else: ?>',
             '/@endif\b/' => '<?php endif; ?>',
             '/@endforeach\b/' => '<?php endforeach; ?>',
+            '/@enderror\b/' => '<?php unset($message); endif; ?>',
             '/@vite\b/' => '<?php echo $__spinxRenderer->vite(); ?>',
             '/@csrf\b/' => '<?php echo $__spinxRenderer->csrfField(); ?>',
         ];
@@ -94,10 +95,10 @@ final class DirectiveCompiler
         return $source;
     }
 
-    /** Directives that take a parenthesized argument list — @if, @elseif, @foreach, @include, @island. */
+    /** Directives that take a parenthesized argument list — @if, @elseif, @foreach, @include, @island, @error. */
     private function compileParenDirectives(string $source): string
     {
-        $pattern = '/@(if|elseif|foreach|include|island)\s*\(/';
+        $pattern = '/@(if|elseif|foreach|include|island|error)\s*\(/';
         $offset = 0;
         $result = '';
 
@@ -123,6 +124,7 @@ final class DirectiveCompiler
             'if' => "<?php if({$args}): ?>",
             'elseif' => "<?php elseif({$args}): ?>",
             'foreach' => "<?php foreach({$args}): ?>",
+            'error' => "<?php if(isset(\$errors) && !empty(\$errors[{$args}])): \$message = is_array(\$errors[{$args}]) ? (\$errors[{$args}][0] ?? '') : \$errors[{$args}]; ?>",
             'include' => $this->compileInclude($args),
             'island' => $this->compileIsland($args),
         };
