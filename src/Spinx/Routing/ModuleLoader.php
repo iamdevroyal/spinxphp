@@ -123,6 +123,18 @@ final class ModuleLoader
 
         $this->aliasesPopulated = true;
 
+        // ─── Framework Core Middleware Aliases ─────────────────────────────────
+        // Registered globally — available in every module without per-module config.
+        $this->aliasRegistry->registerMiddleware(
+            'auth:api',
+            \Spinx\Auth\Middleware\AuthenticateApi::class,
+        );
+        $this->aliasRegistry->registerMiddleware(
+            'ability',
+            \Spinx\Auth\Middleware\RequireTokenAbility::class,
+        );
+        // ──────────────────────────────────────────────────────────────────────
+
         foreach ($this->discoverModules() as $moduleDir) {
             $definition = $this->loadModuleDefinition($moduleDir);
 

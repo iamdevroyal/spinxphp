@@ -257,10 +257,6 @@ return [
             // Webhooks exempt from CSRF
             Route::post(['invoices.webhook', '/webhook'])
                 ->withoutCsrf()
-                ->controller('invoice_controller@webhook');
-        });
-    },
-
     'services' => static function (ContainerBuilder $container, string $moduleDir): void {
         $container->register(InvoiceRepositoryInterface::class, InvoiceRepository::class)
             ->setAutowired(true)
@@ -287,7 +283,9 @@ return [
 | **Cache** | `Spinx\Cache\Cache` | `Cache::remember('key', 3600, fn() => ...)`, `Cache::put('key', $val, 600)`, `Cache::get('key')` |
 | **Logging** | `Spinx\Log\Log` | `Log::info($msg, $context)`, `Log::error($msg, ['exception' => $e])` |
 | **Redis** | `Spinx\Redis\Redis` | `Redis::connection('cache')->get($key)`, `Redis::setex($k, $ttl, $v)` |
-| **Auth** | `Spinx\Auth\Auth` | `Auth::attempt(['email' => $e, 'password' => $p])`, `Auth::check()`, `Auth::user()`, `Auth::id()` |
+| **Auth (Session)** | `Spinx\Auth\Auth` | `Auth::attempt(['email' => $e, 'password' => $p])`, `Auth::check()`, `Auth::user()`, `Auth::id()`, `Auth::logout()` |
+| **API Tokens (PAT)** | `Spinx\Auth\Token\Token` | `Token::createToken($user, 'device', ['*'])`, `Token::findToken($rawBearer)`, `Token::revokeAll($user)` |
+| **JWT Auth** | `Spinx\Auth\Jwt\Jwt` | `Jwt::encode($user, 3600, ['role' => 'admin'])`, `Jwt::decode($token)`, `Jwt::tryDecode($token)`, `Jwt::createRefreshToken($user)` |
 | **Webhooks** | `Spinx\Http\Webhook\HmacWebhookVerifier` | `(new HmacWebhookVerifier())->verify(Request::rawBody(), $sigHeader, $secret)` |
 
 ---
@@ -302,3 +300,180 @@ When designing, generating, or reviewing code, the Spinx AI Builder MUST NEVER:
 5. ❌ **Pollute Domain Entities:** Never import DBAL, Eloquent, SQL, or HTTP classes into `Domain/Entities/`.
 6. ❌ **Import Laravel `Illuminate\*` packages:** Spinx is an independent persistent-worker framework. Never suggest Artisan commands or `Illuminate` classes.
 7. ❌ **Create Mock Dummy Endpoints:** Never invent fake ungrounded APIs. Always verify contract alignment between frontend views and backend controllers.
+8. ❌ **Write raw PHP in templates:** In `.spinx.html` always use `{{ $var }}`, `@class([...])`, `@loop`, `@error`, `@auth`, etc. Never write `<?= ?>` or raw `<?php echo ?>` blocks.
+9. ❌ **Expose PAT plaintext twice:** The `NewAccessToken::$plainTextToken` must ONLY be returned once in the creation API response. Never re-read from DB or log it.
+
+---
+
+## 6. Spinx Directives Reference (v1.0.21+)
+
+The FrontendAgent MUST use Spinx Directives in all `.spinx.html` templates. Raw PHP echo and ternary concatenation are prohibited.
+
+### Layout & Composition
+```html
+@layout('Shared::app', ['title' => 'My Page'])
+  @slot('sidebar') <nav>...</nav> @endslot
+  <main>Page content</main>
+  @push('scripts') <script src="..."></script> @endpush
+@endlayout
+
+@stack('scripts')          <!-- Output all pushed script blocks -->
+@renderSlot('sidebar', 'Default nav')    <!-- Slot with fallback -->
+@once ... @endonce         <!-- Render block exactly once per page -->
+```
+
+### Dynamic Styling
+```html
+<div @class(['card', 'card-active' => $isActive, 'opacity-50' => $isLocked])>
+<div @style(['color:' . $color => !empty($color), 'display:none' => $isHidden])>
+@css <style>.glass { backdrop-filter: blur(12px); }</style> @endcss
+```
+
+### Forms, CSRF & Security
+```html
+<form method="POST">
+    @csrf                                          <!-- Hidden CSRF input -->
+    @method('PUT')                                 <!-- Method spoofing -->
+    @honeypot                                      <!-- Anti-bot fields -->
+    <input value="{{ @old('email', $email) }}">    <!-- Old input restore -->
+    <input @checked($isActive) @required(true)>   <!-- Boolean attr flags -->
+    <select><option @selected($v === $cur)>Option</option></select>
+    <button @disabled($isLocked)>Submit</button>
+</form>
+```
+
+### Smart Loops (prefer @loop over @foreach for collections)
+```html
+@loop($items as $item)
+    <tr @class(['odd' => $loop->odd])>
+        <td>{{ $loop->iteration }}/{{ $loop->count }}: {{ $item->title }}</td>
+    </tr>
+@empty
+    <tr><td colspan="3">No items found.</td></tr>
+@endloop
+```
+`$loop`: `->first`, `->last`, `->index`, `->iteration`, `->count`, `->even`, `->odd`, `->remaining`, `->depth`.
+
+### Auth & Permissions
+```html
+@auth ... @else ... @endauth    <!-- Logged-in check -->
+@guest ... @endguest             <!-- Guest check -->
+@role('admin') ... @endrole     <!-- Role check -->
+@can('edit', $post) ... @endcan  <!-- Policy check -->
+```
+
+### Errors & Flash
+```html
+@error('email') <p class="error">{{ $message }}</p> @enderror
+@hasErrors <div class="alert-box">Validation failed.</div> @endhasErrors
+@flash('success') <div class="toast">{{ $message }}</div> @endflash
+@flashAny <div class="alert alert-{{ $type }}">{{ $message }}</div> @endflashAny
+```
+
+### SEO, Media & Formatting
+```html
+@seo(['title' => 'Page', 'description' => '...', 'image' => '/og.jpg'])
+@svg('icons/star.svg', ['class' => 'w-5 h-5 text-yellow-400'])
+@avatar($user, ['size' => 40])
+@date($date, 'F j, Y') · @timeAgo($date)
+@money(1999, 'USD') · @fileSize($bytes) · @plural($n, 'item') · @truncate($text, 150)
+```
+
+### JavaScript & Islands
+```html
+<script>const state = @js($data);</script>
+@window('AppConfig', ['apiUrl' => '/api/v1', 'userId' => $user->id])
+@island('ComponentName', ['prop' => $value])        <!-- Vue/React hydrated -->
+@islandLazy('HeavyChart', ['data' => $stats])       <!-- Lazy on viewport -->
+@broadcast('channel.' . $id, 'EventName')           <!-- WebSocket hook -->
+@vite                                               <!-- Inject Vite assets -->
+```
+
+### Performance & Debug
+```html
+@cache('nav', 3600) <nav>...</nav> @endcache
+@benchmark('agent-render') ... @endbenchmark
+@dump($variable) · @dd($variable)
+@dev <div class="debug-bar">...</div> @enddev
+@production <script>/* prod-only analytics */</script> @endproduction
+```
+
+---
+
+## 7. API Authentication Guide (v1.0.22+)
+
+### Driver Selection
+Configure in `config/auth.php`:
+```php
+'api' => [
+    'driver'     => env('API_AUTH_DRIVER', 'token'), // 'token' | 'jwt'
+    'jwt_secret' => env('JWT_SECRET', env('APP_KEY')),
+    'jwt_algo'   => 'HS256',
+    'jwt_ttl'    => 3600,
+]
+```
+
+### Personal Access Tokens (driver='token')
+```php
+// User Model: add the trait
+use Spinx\Auth\Traits\HasApiTokens;
+final class User extends Model { use HasApiTokens; }
+
+// ApiAuthController: issue token on login
+$user     = Auth::user();
+$newToken = $user->createToken('iPhone App', ['projects:read', 'chapters:write']);
+return Response::json(['access_token' => $newToken->plainTextToken, 'token_type' => 'Bearer']);
+
+// module.php: protect routes
+$routes->group(['prefix' => '/api/v1', 'middleware' => ['auth:api']], function ($api) {
+    $api->get('/user', [ApiUserController::class, 'profile']);
+    $api->post('/projects', [ApiProjectController::class, 'create'])
+        ->middleware('ability:projects:create');
+});
+
+// Controller: check abilities
+if (!Auth::tokenCan('projects:create')) {
+    return Response::json(['error' => 'Forbidden'], 403);
+}
+// Revoke on logout
+$user->revokeCurrentToken();
+```
+
+### Stateless JWT (driver='jwt')
+```php
+use Spinx\Auth\Jwt\Jwt;
+// Issue
+$access  = Jwt::encode($user, 3600, ['role' => 'author']);
+$refresh = Jwt::createRefreshToken($user);
+// Decode (throws JwtException on failure)
+$payload = Jwt::decode($access);
+$userId  = $payload['sub'];
+// Safe decode (returns null on failure)
+$payload = Jwt::tryDecode($token);
+// Routes use same 'auth:api' middleware — driver is auto-detected from JWT shape
+```
+
+### Headless / API-Only Mode
+```php
+// All controllers in API-only apps:
+public function list(): Response
+{
+    $user    = Auth::user();                       // Set by auth:api middleware
+    $data    = Request::validate(['page' => 'integer|min:1']);
+    $results = $this->projectService->paginate($user->id, $data['page'] ?? 1);
+
+    return Response::json([
+        'status' => 'success',
+        'data'   => $results,
+    ]);
+}
+
+// config/cors.php — required for decoupled frontends:
+return [
+    'allowed_origins'   => [env('FRONTEND_URL', 'http://localhost:3000')],
+    'allowed_methods'   => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    'allowed_headers'   => ['Content-Type', 'Authorization', 'X-Requested-With'],
+    'allow_credentials' => true,
+];
+```
+

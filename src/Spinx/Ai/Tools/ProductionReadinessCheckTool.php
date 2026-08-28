@@ -177,17 +177,21 @@ final class ProductionReadinessCheckTool implements ToolInterface
                 }
             }
 
-            // 5. Check module.php routing & CSRF registration
+            // 8. Check module.php routing, CSRF & API auth registration
             $moduleFile = $modPath . '/module.php';
             if (is_file($moduleFile)) {
                 $totalChecks++;
                 $mContent = (string) file_get_contents($moduleFile);
                 if (str_contains($mContent, 'Route::post') || str_contains($mContent, 'Route::put') || str_contains($mContent, 'Route::delete')) {
-                    if (!str_contains($mContent, "'csrf'") && !str_contains($mContent, '"csrf"')) {
+                    // API routes protected by auth:api or web routes protected by csrf / withoutCsrf
+                    $hasCsrf = str_contains($mContent, "'csrf'") || str_contains($mContent, '"csrf"') || str_contains($mContent, 'withoutCsrf');
+                    $hasApiAuth = str_contains($mContent, "'auth:api'") || str_contains($mContent, '"auth:api"');
+
+                    if (!$hasCsrf && !$hasApiAuth) {
                         $issues[] = [
                             'file'     => str_replace($this->projectRoot . '/', '', $moduleFile),
                             'severity' => 'WARNING',
-                            'message'  => 'State-changing routes (POST/PUT/DELETE) should carry the "csrf" middleware alias.',
+                            'message'  => 'State-changing routes (POST/PUT/DELETE) should carry "csrf" middleware (for web forms) or "auth:api" middleware (for API endpoints).',
                         ];
                     } else {
                         $passedChecks++;

@@ -83,9 +83,24 @@ final class ArchitectureValidatorTool implements ToolInterface
             }
         }
 
-        // 6. Path validation (must be in app/Modules/)
-        if ($filePath !== '' && !str_starts_with($filePath, 'app/Modules/') && !str_starts_with($filePath, 'config/') && !str_starts_with($filePath, 'resources/')) {
+        // 6. Path validation (must be in app/Modules/ or standard system dirs)
+        if ($filePath !== '' && !str_starts_with($filePath, 'app/Modules/') && !str_starts_with($filePath, 'config/') && !str_starts_with($filePath, 'resources/') && !str_starts_with($filePath, 'src/')) {
             $errors[] = "Invalid file location [{$filePath}]. In Spinx DDD, all domain logic, controllers, models, and migrations must live in app/Modules/<ModuleName>/, not root folders.";
+        }
+
+        // 7. Template Directives & Blade Anti-Patterns (.spinx.html)
+        if (str_ends_with($filePath, '.spinx.html') || str_contains($code, '@extends(') || str_contains($code, '@section(')) {
+            if (str_contains($code, '@extends(') || str_contains($code, '@yield(') || str_contains($code, '@section(')) {
+                $warnings[] = 'Legacy Blade template syntax detected (@extends, @yield, @section). Spinx uses @layout(\'Shared::app\', [\'title\' => ...]), @slot(\'name\') ... @endslot, and {!! $slot !!}.';
+            }
+            if (preg_match('/<\?(=|php\s+echo)/', $code)) {
+                $warnings[] = 'Raw PHP echo syntax detected in template. Use Spinx Directives or safe echo {{ $var }} / unescaped {!! $var !!}.';
+            }
+        }
+
+        // 8. API Token & Secret Exposure
+        if (str_contains($code, 'plainTextToken') && (str_contains($code, 'Log::') || str_contains($code, '->save()'))) {
+            $warnings[] = 'Potential token leakage: Plaintext bearer tokens ($newToken->plainTextToken) must only be returned in the immediate HTTP response. Never log or persist plaintext tokens.';
         }
 
         $isValid = empty($errors);

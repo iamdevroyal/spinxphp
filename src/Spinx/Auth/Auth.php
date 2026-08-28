@@ -33,6 +33,12 @@ final class Auth
     private static ?UserProviderInterface $provider = null;
     private static ?SessionInterface      $session  = null;
 
+    /** API token auth: user resolved by middleware (PAT or JWT), set per-request. */
+    private static ?object                $apiUser        = null;
+
+    /** JWT claims array, set by AuthenticateApi middleware for tokenCan() access. */
+    private static array                  $tokenClaims    = [];
+
     /** Called once at Kernel::boot() — not called per-request. */
     public static function boot(UserProviderInterface $provider, SessionInterface $session): void
     {
@@ -105,11 +111,10 @@ final class Auth
     }
 
     /**
-     * Returns the authenticated user object, or null if not authenticated.
-     * Resolves the user from the provider on every call — no per-request
-     * caching here because the session is already the cache.
+     * @deprecated Replaced by the unified user() above that checks both API token and session.
+     * Kept for internal call sites — do not call directly; use Auth::user() instead.
      */
-    public static function user(): ?object
+    private static function resolveSessionUser(): ?object
     {
         if (!self::check()) {
             return null;
@@ -128,6 +133,101 @@ final class Auth
     public static function id(): int|string|null
     {
         return self::requireSession()->get(self::SESSION_KEY);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // API Token Auth Support (used by AuthenticateApi middleware)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Bind an already-resolved user object to Auth for the current request.
+     * Called by AuthenticateApi middleware after PAT or JWT verification.
+     */
+    public static function setUser(object $user): void
+    {
+        self::$apiUser = $user;
+    }
+
+    /**
+     * Get the currently authenticated user — checks API token user first,
+     * then falls back to session-backed auth.
+     */
+    public static function user(): ?object
+    {
+        // API token user takes precedence (set by AuthenticateApi middleware)
+        if (self::$apiUser !== null) {
+            return self::$apiUser;
+        }
+
+        // Fall back to session-based auth
+        if (!self::check()) {
+            return null;
+        }
+
+        $id = self::id();
+
+        if ($id === null) {
+            return null;
+        }
+
+        return self::requireProvider()->findById($id);
+    }
+
+    /**
+     * Store decoded JWT payload claims for the current request.
+     * Called by AuthenticateApi middleware after JWT verification.
+     *
+     * @param array<string,mixed> $claims
+     */
+    public static function setTokenClaims(array $claims): void
+    {
+        self::$tokenClaims = $claims;
+    }
+
+    /**
+     * Get the JWT claims for the current request (empty array if not JWT auth).
+     *
+     * @return array<string,mixed>
+     */
+    public static function tokenClaims(): array
+    {
+        return self::$tokenClaims;
+    }
+
+    /**
+     * Check if the current request token can perform a given ability.
+     * Delegates to the user's HasApiTokens::tokenCan() if available,
+     * or checks JWT claims directly.
+     *
+     * @param string $ability  e.g. 'projects:create', 'chapters:read'
+     */
+    public static function tokenCan(string $ability): bool
+    {
+        $user = self::user();
+
+        if ($user !== null && method_exists($user, 'tokenCan')) {
+            return $user->tokenCan($ability);
+        }
+
+        // Fallback: inspect JWT claims directly
+        $claims    = self::$tokenClaims;
+        $abilities = (array) ($claims['abilities'] ?? $claims['scopes'] ?? ['*']);
+
+        if (in_array('*', $abilities, true)) {
+            return true;
+        }
+
+        return in_array($ability, $abilities, true);
+    }
+
+    /**
+     * Reset all per-request API token state.
+     * Called automatically by Kernel in the request finally block alongside Csrf::reset().
+     */
+    public static function resetApiState(): void
+    {
+        self::$apiUser     = null;
+        self::$tokenClaims = [];
     }
 
     // ---------------------------------------------------------------
