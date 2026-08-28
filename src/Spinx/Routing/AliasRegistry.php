@@ -92,7 +92,16 @@ final class AliasRegistry
 
     public function hasMiddleware(string $alias): bool
     {
-        return isset($this->middlewares[$alias]) || class_exists($alias);
+        if (isset($this->middlewares[$alias]) || class_exists($alias)) {
+            return true;
+        }
+
+        if (str_contains($alias, ':')) {
+            [$base] = explode(':', $alias, 2);
+            return isset($this->middlewares[$base]) || class_exists($base);
+        }
+
+        return false;
     }
 
     /** @throws \RuntimeException If the alias is not registered */
@@ -100,6 +109,16 @@ final class AliasRegistry
     {
         if (isset($this->middlewares[$alias])) {
             return $this->middlewares[$alias];
+        }
+
+        if (str_contains($alias, ':')) {
+            [$base] = explode(':', $alias, 2);
+            if (isset($this->middlewares[$base])) {
+                return $this->middlewares[$base];
+            }
+            if (class_exists($base)) {
+                return $base;
+            }
         }
 
         if (class_exists($alias)) {
@@ -111,6 +130,7 @@ final class AliasRegistry
             "Add it to the 'middlewares' closure in the relevant module.php."
         );
     }
+
 
     /** @return array<string, string> */
     public function allMiddlewares(): array

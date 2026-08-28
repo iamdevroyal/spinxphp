@@ -234,6 +234,14 @@ final class Auth
     // Internal helpers
     // ---------------------------------------------------------------
 
+    /**
+     * Get the active session instance booted into Auth.
+     */
+    public static function getSession(): ?SessionInterface
+    {
+        return self::$session;
+    }
+
     private static function primaryKey(): string
     {
         return \Spinx\Support\Config::get('auth.primary_key', 'id');

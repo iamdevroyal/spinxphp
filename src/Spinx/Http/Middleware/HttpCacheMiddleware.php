@@ -16,8 +16,18 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  *   $routes->get('/api/v1/chapters/{id}', [ChapterController::class, 'show'])
  *       ->middleware('cache.headers:max_age=3600,etag');
  */
-final class HttpCacheMiddleware
+final class HttpCacheMiddleware implements MiddlewareInterface
 {
+    public function __construct(
+        private readonly string $options = 'max_age=3600,etag',
+    ) {
+    }
+
+    public function process(\Symfony\Component\HttpFoundation\Request $request, \Closure $next): SymfonyResponse
+    {
+        return $this->handle($request, $next, $this->options);
+    }
+
     /**
      * @param mixed $request
      * @param \Closure(mixed): mixed $next
@@ -25,10 +35,20 @@ final class HttpCacheMiddleware
      */
     public function handle(mixed $request, \Closure $next, string $options = 'max_age=3600,etag'): mixed
     {
+
         $response = $next($request);
 
-        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-        if (!in_array($method, ['GET', 'HEAD'], true)) {
+        $method = '';
+        if ($request instanceof SymfonyResponse || $request instanceof \Symfony\Component\HttpFoundation\Request) {
+            $method = $request->getMethod();
+        } elseif (class_exists(\Spinx\Http\Request::class) && method_exists(\Spinx\Http\Request::class, 'method')) {
+            $method = \Spinx\Http\Request::method();
+        }
+        if ($method === '') {
+            $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        }
+
+        if (!in_array(strtoupper((string) $method), ['GET', 'HEAD'], true)) {
             return $response;
         }
 
@@ -52,9 +72,19 @@ final class HttpCacheMiddleware
             $response->headers->set('ETag', $etag);
 
             // 3. Evaluate conditional If-None-Match header
-            $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? null;
+            $ifNoneMatch = null;
+            if ($request instanceof \Symfony\Component\HttpFoundation\Request) {
+                $ifNoneMatch = $request->headers->get('If-None-Match');
+            } elseif (class_exists(\Spinx\Http\Request::class) && method_exists(\Spinx\Http\Request::class, 'header')) {
+                $ifNoneMatch = \Spinx\Http\Request::header('If-None-Match');
+            }
+            if ($ifNoneMatch === null) {
+                $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? null;
+            }
+
             if ($ifNoneMatch !== null) {
-                $clientEtags = array_map('trim', explode(',', $ifNoneMatch));
+                $clientEtags = array_map('trim', explode(',', (string) $ifNoneMatch));
+
 
                 if (in_array($etag, $clientEtags, true) || in_array('*', $clientEtags, true)) {
                     $response->setStatusCode(304);

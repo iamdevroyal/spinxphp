@@ -17,9 +17,14 @@ use Spinx\Http\Response;
  *   $routes->post('/api/v1/payments/charge', [PaymentController::class, 'charge'])
  *       ->middleware('idempotent');
  */
-final class IdempotencyMiddleware
+final class IdempotencyMiddleware implements MiddlewareInterface
 {
     private const DEFAULT_TTL_SECONDS = 86400; // 24 hours
+
+    public function process(\Symfony\Component\HttpFoundation\Request $request, \Closure $next): \Symfony\Component\HttpFoundation\Response
+    {
+        return $this->handle($request, $next);
+    }
 
     /**
      * @param mixed $request
@@ -27,10 +32,10 @@ final class IdempotencyMiddleware
      */
     public function handle(mixed $request, \Closure $next, int $ttl = self::DEFAULT_TTL_SECONDS): mixed
     {
-        $idempotencyKey = $this->extractIdempotencyKey();
+        $idempotencyKey = $this->extractIdempotencyKey($request);
 
         // If not a mutation request or no idempotency header is provided, proceed normally
-        if ($idempotencyKey === null || !$this->isMutationMethod()) {
+        if ($idempotencyKey === null || !$this->isMutationMethod($request)) {
             return $next($request);
         }
 
@@ -47,10 +52,9 @@ final class IdempotencyMiddleware
             $headers['Idempotent-Replay'] = 'true';
             $headers['Idempotency-Key']   = $idempotencyKey;
 
-            header('Idempotent-Replay: true', replace: true);
-
             return Response::make($content, $status, $headers);
         }
+
 
         // 2. Execute the underlying request
         $response = $next($request);
@@ -70,19 +74,40 @@ final class IdempotencyMiddleware
         return $response;
     }
 
-    private function extractIdempotencyKey(): ?string
+    private function extractIdempotencyKey(mixed $request = null): ?string
     {
-        $key = $_SERVER['HTTP_IDEMPOTENCY_KEY']
-            ?? $_SERVER['HTTP_X_IDEMPOTENCY_KEY']
-            ?? null;
+        $key = null;
 
-        return $key !== null && trim($key) !== '' ? trim($key) : null;
+        if ($request instanceof \Symfony\Component\HttpFoundation\Request) {
+            $key = $request->headers->get('Idempotency-Key') ?? $request->headers->get('X-Idempotency-Key');
+        } elseif (class_exists(\Spinx\Http\Request::class) && method_exists(\Spinx\Http\Request::class, 'header')) {
+            $key = \Spinx\Http\Request::header('Idempotency-Key') ?? \Spinx\Http\Request::header('X-Idempotency-Key');
+        }
+
+        if ($key === null) {
+            $key = $_SERVER['HTTP_IDEMPOTENCY_KEY']
+                ?? $_SERVER['HTTP_X_IDEMPOTENCY_KEY']
+                ?? null;
+        }
+
+        return $key !== null && trim((string) $key) !== '' ? trim((string) $key) : null;
     }
 
-    private function isMutationMethod(): bool
+    private function isMutationMethod(mixed $request = null): bool
     {
-        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $method = '';
 
-        return in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true);
+        if ($request instanceof \Symfony\Component\HttpFoundation\Request) {
+            $method = $request->getMethod();
+        } elseif (class_exists(\Spinx\Http\Request::class) && method_exists(\Spinx\Http\Request::class, 'method')) {
+            $method = \Spinx\Http\Request::method();
+        }
+
+        if ($method === '') {
+            $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        }
+
+        return in_array(strtoupper((string) $method), ['POST', 'PUT', 'PATCH', 'DELETE'], true);
     }
 }
+

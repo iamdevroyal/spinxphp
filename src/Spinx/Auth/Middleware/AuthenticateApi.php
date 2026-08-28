@@ -8,6 +8,9 @@ use Spinx\Auth\Auth;
 use Spinx\Auth\Jwt\Jwt;
 use Spinx\Auth\Jwt\JwtException;
 use Spinx\Auth\Token\Token;
+use Spinx\Http\Middleware\MiddlewareInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Spinx\Support\Config;
 
 /**
@@ -31,13 +34,18 @@ use Spinx\Support\Config;
  * On failure, returns a JSON 401 Unauthorized response immediately,
  * without reaching the controller.
  */
-final class AuthenticateApi
+final class AuthenticateApi implements MiddlewareInterface
 {
     private string $driver;
 
     public function __construct()
     {
         $this->driver = Config::get('auth.api.driver', 'token');
+    }
+
+    public function process(Request $request, \Closure $next): Response
+    {
+        return $this->handle($request, $next);
     }
 
     /**
@@ -47,7 +55,7 @@ final class AuthenticateApi
      */
     public function handle(mixed $request, \Closure $next): mixed
     {
-        $bearer = $this->extractBearer();
+        $bearer = $this->extractBearer($request);
 
         if ($bearer === null) {
             return $this->unauthorized('Missing Authorization: Bearer token.');
@@ -59,6 +67,7 @@ final class AuthenticateApi
 
         return $this->handlePat($bearer, $request, $next);
     }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // PAT Driver
@@ -141,11 +150,21 @@ final class AuthenticateApi
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function extractBearer(): ?string
+    private function extractBearer(mixed $request = null): ?string
     {
-        $header = $_SERVER['HTTP_AUTHORIZATION']
-            ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
-            ?? '';
+        $header = '';
+
+        if ($request instanceof \Symfony\Component\HttpFoundation\Request) {
+            $header = (string) $request->headers->get('Authorization', '');
+        } elseif (class_exists(Request::class) && method_exists(Request::class, 'header')) {
+            $header = (string) (Request::header('Authorization') ?? '');
+        }
+
+        if ($header === '') {
+            $header = (string) ($_SERVER['HTTP_AUTHORIZATION']
+                ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+                ?? '');
+        }
 
         if (str_starts_with($header, 'Bearer ')) {
             return trim(substr($header, 7));
@@ -154,14 +173,14 @@ final class AuthenticateApi
         return null;
     }
 
-    private function unauthorized(string $message): mixed
+
+    private function unauthorized(string $message): Response
     {
         $body = json_encode(['error' => 'Unauthorized', 'message' => $message], JSON_UNESCAPED_SLASHES);
 
-        header('Content-Type: application/json', replace: true, response_code: 401);
-        echo $body;
-
-        // Signal the kernel to halt further processing
-        return false;
+        return new Response((string) $body, 401, [
+            'Content-Type' => 'application/json',
+        ]);
     }
 }
+

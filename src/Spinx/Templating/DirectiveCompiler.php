@@ -93,17 +93,18 @@ final class DirectiveCompiler
             '/@honeypot\b/'     => '<div style="display:none !important;"><input type="text" name="_spinx_hp_time" value="<?php echo time(); ?>"><input type="text" name="_spinx_hp_token" value="" tabindex="-1" autocomplete="off"></div>',
             '/@vite\b/'         => '<?php echo $__spinxRenderer->vite(); ?>',
 
-            '/@dev\b/'          => '<?php if(in_array(strtolower((string)(getenv(\'APP_ENV\') ?: \'local\')), [\'local\', \'dev\', \'development\'], true)): ?>',
-            '/@production\b/'   => '<?php if(strtolower((string)(getenv(\'APP_ENV\') ?: \'production\')) === \'production\'): ?>',
-            '/@testing\b/'      => '<?php if(strtolower((string)(getenv(\'APP_ENV\') ?: \'production\')) === \'testing\'): ?>',
+            '/@dev\b/'          => '<?php if(in_array(strtolower((string)(\Spinx\Support\Config::get(\'app.env\') ?: env(\'APP_ENV\', \'local\'))), [\'local\', \'dev\', \'development\'], true)): ?>',
+            '/@production\b/'   => '<?php if(strtolower((string)(\Spinx\Support\Config::get(\'app.env\') ?: env(\'APP_ENV\', \'production\'))) === \'production\'): ?>',
+            '/@testing\b/'      => '<?php if(strtolower((string)(\Spinx\Support\Config::get(\'app.env\') ?: env(\'APP_ENV\', \'testing\'))) === \'testing\'): ?>',
             '/@auth\b/'         => '<?php if($__spinx_user = $__spinxRenderer->currentUser()): $user = $__spinx_user; ?>',
             '/@guest\b/'        => '<?php if(!$__spinxRenderer->currentUser()): ?>',
-            '/@dark\b/'         => '<?php if(($theme ?? \'\') === \'dark\' || (isset($_COOKIE[\'theme\']) && $_COOKIE[\'theme\'] === \'dark\')): ?>',
-            '/@light\b/'        => '<?php if(($theme ?? \'\') !== \'dark\' && (!isset($_COOKIE[\'theme\']) || $_COOKIE[\'theme\'] !== \'dark\')): ?>',
+            '/@dark\b/'         => '<?php if($__spinxRenderer->isDarkTheme($theme ?? null)): ?>',
+            '/@light\b/'        => '<?php if(!$__spinxRenderer->isDarkTheme($theme ?? null)): ?>',
             '/@css\b/'          => '<?php $__spinxRenderer->startPush(\'styles\'); ?>',
             '/@script\b/'       => '<?php $__spinxRenderer->startPush(\'scripts\'); ?>',
-            '/@flashAny\b/'     => '<?php if($__activeFlashes = (session_status() === PHP_SESSION_ACTIVE ? ($_SESSION[\'_flash\'] ?? []) : [])): foreach($__activeFlashes as $type => $message): ?>',
+            '/@flashAny\b/'     => '<?php if($__activeFlashes = $__spinxRenderer->allFlashes()): foreach($__activeFlashes as $type => $message): ?>',
         ];
+
 
         foreach ($map as $pattern => $replacement) {
             $source = (string) preg_replace($pattern, $replacement, $source);

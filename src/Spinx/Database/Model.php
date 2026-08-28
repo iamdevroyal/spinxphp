@@ -9,8 +9,7 @@ use Spinx\Database\Connection\ConnectionManager;
 use Spinx\Database\Relations\{BelongsTo, BelongsToMany, HasMany, HasOne, MorphMany, MorphTo, Relation};
 
 /**
- * Active-record base class providing Eloquent-style feature parity (build
- * spec §7.2) on top of the coroutine-safe QueryBuilder (§7.1) rather than
+ * Active-record base class providing Eloquent-style feature parity on top of the coroutine-safe QueryBuilder rather than
  * Doctrine's UnitOfWork.
  *
  * Note on static state: $connectionManager and $observers below ARE

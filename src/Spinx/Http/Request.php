@@ -198,10 +198,23 @@ final class Request
         return self::instance()->getUri();
     }
 
+    public static function session(): ?\Spinx\Session\SessionInterface
+    {
+        return self::instance()->attributes->get(\Spinx\Session\SessionInterface::class)
+            ?? \Spinx\Auth\Auth::getSession();
+    }
+
+    public static function old(string $key, mixed $default = null): mixed
+    {
+        $session = self::session();
+        return $session !== null ? $session->get('_old_input.' . $key, $default) : $default;
+    }
+
     public static function user(): ?object
     {
         return Auth::user();
     }
+
 
     /**
      * Validate the current request's input against the given rules.

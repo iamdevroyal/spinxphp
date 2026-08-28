@@ -228,8 +228,10 @@ final class Kernel
             // Guarantee zero cross-request memory leak in persistent workers
             \Spinx\Http\Request::setCurrentRequest(null);
             \Spinx\Security\Csrf::reset();
+            \Spinx\Auth\Auth::resetApiState();
             $this->requestScope->reset();
         }
+
     }
 
     private function handleException(\Throwable $e, Request $request): Response

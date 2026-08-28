@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Spinx\Auth\Middleware;
 
-use Spinx\Auth\Auth;
+use Spinx\Http\Middleware\MiddlewareInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * RequireTokenAbility — Enforces that the currently authenticated token
@@ -24,8 +26,18 @@ use Spinx\Auth\Auth;
  *
  * Returns JSON 403 Forbidden if the token lacks the required ability.
  */
-final class RequireTokenAbility
+final class RequireTokenAbility implements MiddlewareInterface
 {
+    public function __construct(
+        private readonly string $ability = '*',
+    ) {
+    }
+
+    public function process(Request $request, \Closure $next): Response
+    {
+        return $this->handle($request, $next, $this->ability);
+    }
+
     /**
      * @param  string  $ability   Comma-separated abilities from middleware alias, e.g. "projects:create"
      * @param  \Closure(mixed): mixed  $next
@@ -68,13 +80,13 @@ final class RequireTokenAbility
         return in_array($ability, $abilities, true);
     }
 
-    private function forbidden(string $message): mixed
+    private function forbidden(string $message): Response
     {
         $body = json_encode(['error' => 'Forbidden', 'message' => $message], JSON_UNESCAPED_SLASHES);
 
-        header('Content-Type: application/json', replace: true, response_code: 403);
-        echo $body;
-
-        return false;
+        return new Response((string) $body, 403, [
+            'Content-Type' => 'application/json',
+        ]);
     }
 }
+

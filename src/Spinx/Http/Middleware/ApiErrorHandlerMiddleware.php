@@ -21,8 +21,13 @@ use Spinx\Validation\ValidationException;
  *
  * Registered globally as the 'api.errors' middleware alias.
  */
-final class ApiErrorHandlerMiddleware
+final class ApiErrorHandlerMiddleware implements MiddlewareInterface
 {
+    public function process(\Symfony\Component\HttpFoundation\Request $request, \Closure $next): \Symfony\Component\HttpFoundation\Response
+    {
+        return $this->handle($request, $next);
+    }
+
     /**
      * @param mixed $request
      * @param \Closure(mixed): mixed $next
@@ -92,13 +97,9 @@ final class ApiErrorHandlerMiddleware
         $problem->withInstance($instance);
         $problem->withRequestId($requestId);
 
-        $body = json_encode($problem->toArray(), JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-
-        header('Content-Type: application/problem+json', replace: true, response_code: $problem->status);
-        echo $body;
-
         return Response::json($problem->toArray(), $problem->status, [
             'Content-Type' => 'application/problem+json',
         ]);
     }
 }
+

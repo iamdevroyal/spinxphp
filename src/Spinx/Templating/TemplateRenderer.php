@@ -183,12 +183,9 @@ final class TemplateRenderer
             return Request::old($key, $default);
         }
 
-        if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['_old_input'][$key])) {
-            return $_SESSION['_old_input'][$key];
-        }
-
         return $default;
     }
+
 
     /**
      * Build class attribute from string, list, or conditional map.
@@ -481,11 +478,20 @@ final class TemplateRenderer
             return \Spinx\Auth\Auth::user();
         }
 
-        if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['user'])) {
-            return $_SESSION['user'];
+        return null;
+    }
+
+    public function isDarkTheme(?string $theme = null): bool
+    {
+        if ($theme !== null && $theme !== '') {
+            return strtolower($theme) === 'dark';
         }
 
-        return null;
+        if (class_exists(Request::class) && method_exists(Request::class, 'cookie')) {
+            return Request::cookie('theme') === 'dark';
+        }
+
+        return false;
     }
 
     public function hasRole(string $role): bool
@@ -519,14 +525,39 @@ final class TemplateRenderer
 
     public function flash(string $key): ?string
     {
-        if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['_flash'][$key])) {
-            $msg = $_SESSION['_flash'][$key];
-            unset($_SESSION['_flash'][$key]);
+        $session = class_exists(Request::class) && method_exists(Request::class, 'session')
+            ? Request::session()
+            : null;
+
+        if ($session !== null && $session->has('_flash.' . $key)) {
+            $msg = $session->get('_flash.' . $key);
+            $session->forget('_flash.' . $key);
             return (string) $msg;
         }
 
         return null;
     }
+
+    /**
+     * Retrieve all active flash messages and clear them from session.
+     *
+     * @return array<string, string>
+     */
+    public function allFlashes(): array
+    {
+        $session = class_exists(Request::class) && method_exists(Request::class, 'session')
+            ? Request::session()
+            : null;
+
+        if ($session !== null) {
+            $flashes = (array) $session->get('_flash', []);
+            $session->forget('_flash');
+            return $flashes;
+        }
+
+        return [];
+    }
+
 
     // ── Fragment Caching ──────────────────────────────────────────────────
 
