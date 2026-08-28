@@ -7,30 +7,18 @@ namespace Spinx\Templating;
 /**
  * Compiles Spinx directive syntax into plain PHP/HTML.
  *
- * This is "Spinx Directives": server-side control flow
- * (@if, @foreach, @include) stays server-side and compiles to plain PHP,
- * while @island emits markup with data-spinx-* hydration hooks so any
- * frontend framework — Vue by default, React as a swappable adapter — can
- * mount a real component onto that markup. This is deliberately NOT a
- * Blade clone: Blade's directives are PHP-only, with no concept of a
- * client-side mount point. @island is the piece that makes the templating
- * layer frontend-agnostic rather than PHP-only.
- *
- * Directive grammar:
- *   {{ $expr }}              escaped echo
- *   {!! $expr !!}             raw (unescaped) echo
- *   {{-- comment --}}          stripped entirely, never rendered
- *   @if(...) / @elseif(...) / @else / @endif
- *   @foreach(...) / @endforeach
- *   @include('view', [...])    renders a partial, data array is explicit
- *   @island('Name', [...])     emits a data-spinx-island hydration hook
- *   @vite                       emits dev/prod frontend asset tags
- *
- * Directive arguments are extracted with a balanced-parenthesis scanner
- * (findMatchingParen / splitTopLevelArgs) rather than a single regex,
- * because template authors will write nested expressions like
- * @if(($a && $b) || $c) — a naive `/@if\((.*?)\)/` regex breaks on the
- * first inner `)` and silently truncates the condition.
+ * Spinx Directives support:
+ *   1. Layouts & Stacks: @layout, @slot, @renderSlot, @push, @prepend, @stack, @once
+ *   2. Forms & Attributes: @csrf, @method, @honeypot, @checked, @selected, @disabled, @readonly, @required, @autofocus, @hidden, @old
+ *   3. Styling & CSS: @class, @style, @css, @dark, @light
+ *   4. Scripts & JS: @js, @script, @window, @island, @islandLazy, @broadcast, @vite
+ *   5. Control Flow: @if, @elseif, @else, @endif, @unless, @when, @has, @missing
+ *   6. Iteration: @foreach, @endforeach, @loop, @empty, @endloop
+ *   7. Auth & Access: @auth, @guest, @role, @can
+ *   8. Errors & Flash: @error, @hasErrors, @flash, @flashAny
+ *   9. Media & Formatting: @svg, @image, @avatar, @fileSize, @truncate, @plural, @date, @timeAgo, @money
+ *  10. SEO & Metadata: @seo, @title, @meta, @schema
+ *  11. Developer & Performance: @dev, @production, @testing, @cache, @benchmark, @dump, @dd
  */
 final class DirectiveCompiler
 {
@@ -52,18 +40,6 @@ final class DirectiveCompiler
 
     private function compileRawEchos(string $source): string
     {
-        // The negative-lookahead pattern (?:(?!!!}).)+ — rather than a
-        // plain .+? — guarantees this can never skip past its OWN
-        // closing "!!}" to grab a distant, unrelated one elsewhere in
-        // the document. Found the hard way: a template containing
-        // literal prose like "the {{ }} syntax" (documenting the
-        // directive rather than using it) caused .+? to fail matching
-        // locally against whitespace-only content and instead extend
-        // forward to the next real "!!}"/"}}" anywhere in the file,
-        // silently swallowing and corrupting everything in between. This
-        // pattern fails loudly and locally instead — worst case an empty
-        // {!! !!} produces a local PHP parse error at that exact spot,
-        // never silent corruption of unrelated content elsewhere.
         return (string) preg_replace('/{!!\s*((?:(?!!!}).)+?)\s*!!}/s', '<?php echo $1; ?>', $source);
     }
 
@@ -76,16 +52,57 @@ final class DirectiveCompiler
         );
     }
 
-    /** Directives with no parenthesized argument list — @else, @endif, @endforeach, @enderror. */
+    /** Directives with no parenthesized argument list. */
     private function compileBareDirectives(string $source): string
     {
         $map = [
-            '/@else\b/' => '<?php else: ?>',
-            '/@endif\b/' => '<?php endif; ?>',
-            '/@endforeach\b/' => '<?php endforeach; ?>',
-            '/@enderror\b/' => '<?php unset($message); endif; ?>',
-            '/@vite\b/' => '<?php echo $__spinxRenderer->vite(); ?>',
-            '/@csrf\b/' => '<?php echo $__spinxRenderer->csrfField(); ?>',
+            '/@else\b/'         => '<?php else: ?>',
+            '/@endif\b/'        => '<?php endif; ?>',
+            '/@endforeach\b/'   => '<?php endforeach; ?>',
+            '/@empty\b/'        => '<?php endforeach; else: ?>',
+            '/@endloop\b/'      => '<?php endif; ?>',
+            '/@endunless\b/'    => '<?php endif; ?>',
+            '/@endwhen\b/'      => '<?php endif; ?>',
+            '/@endhas\b/'       => '<?php endif; ?>',
+            '/@endmissing\b/'   => '<?php endif; ?>',
+            '/@endauth\b/'      => '<?php unset($user); endif; ?>',
+            '/@endguest\b/'     => '<?php endif; ?>',
+            '/@endrole\b/'      => '<?php endif; ?>',
+            '/@endcan\b/'       => '<?php endif; ?>',
+            '/@enderror\b/'     => '<?php unset($message); endif; ?>',
+            '/@hasErrors\b/'    => '<?php if(!empty($errors)): ?>',
+            '/@endhasErrors\b/' => '<?php endif; ?>',
+            '/@endflash\b/'     => '<?php unset($message); endif; ?>',
+            '/@endflashAny\b/'  => '<?php unset($message, $type); endforeach; endif; ?>',
+            '/@endlayout\b/'    => '<?php echo $__spinxRenderer->endLayout(); ?>',
+            '/@endslot\b/'      => '<?php $__spinxRenderer->stopSlot(); ?>',
+            '/@endpush\b/'      => '<?php $__spinxRenderer->stopPush(); ?>',
+            '/@endprepend\b/'   => '<?php $__spinxRenderer->stopPrepend(); ?>',
+            '/@endonce\b/'      => '<?php endif; ?>',
+            '/@endcache\b/'     => '<?php echo $__spinxRenderer->cacheEnd(); endif; ?>',
+            '/@endcss\b/'       => '<?php $__spinxRenderer->stopPush(); ?>',
+            '/@endscript\b/'    => '<?php $__spinxRenderer->stopPush(); ?>',
+            '/@enddev\b/'       => '<?php endif; ?>',
+            '/@endproduction\b/'=> '<?php endif; ?>',
+            '/@endtesting\b/'   => '<?php endif; ?>',
+            '/@enddark\b/'      => '<?php endif; ?>',
+            '/@endlight\b/'     => '<?php endif; ?>',
+            '/@endbenchmark\b/' => '<?php echo "<!-- Benchmark: " . round((microtime(true) - $__spinx_bench_start) * 1000, 2) . "ms | " . round((memory_get_usage() - $__spinx_bench_mem) / 1024, 2) . "KB -->"; ?>',
+
+            '/@csrf\b/'         => '<?php echo $__spinxRenderer->csrfField(); ?>',
+            '/@honeypot\b/'     => '<div style="display:none !important;"><input type="text" name="_spinx_hp_time" value="<?php echo time(); ?>"><input type="text" name="_spinx_hp_token" value="" tabindex="-1" autocomplete="off"></div>',
+            '/@vite\b/'         => '<?php echo $__spinxRenderer->vite(); ?>',
+
+            '/@dev\b/'          => '<?php if(in_array(strtolower((string)(getenv(\'APP_ENV\') ?: \'local\')), [\'local\', \'dev\', \'development\'], true)): ?>',
+            '/@production\b/'   => '<?php if(strtolower((string)(getenv(\'APP_ENV\') ?: \'production\')) === \'production\'): ?>',
+            '/@testing\b/'      => '<?php if(strtolower((string)(getenv(\'APP_ENV\') ?: \'production\')) === \'testing\'): ?>',
+            '/@auth\b/'         => '<?php if($__spinx_user = $__spinxRenderer->currentUser()): $user = $__spinx_user; ?>',
+            '/@guest\b/'        => '<?php if(!$__spinxRenderer->currentUser()): ?>',
+            '/@dark\b/'         => '<?php if(($theme ?? \'\') === \'dark\' || (isset($_COOKIE[\'theme\']) && $_COOKIE[\'theme\'] === \'dark\')): ?>',
+            '/@light\b/'        => '<?php if(($theme ?? \'\') !== \'dark\' && (!isset($_COOKIE[\'theme\']) || $_COOKIE[\'theme\'] !== \'dark\')): ?>',
+            '/@css\b/'          => '<?php $__spinxRenderer->startPush(\'styles\'); ?>',
+            '/@script\b/'       => '<?php $__spinxRenderer->startPush(\'scripts\'); ?>',
+            '/@flashAny\b/'     => '<?php if($__activeFlashes = (session_status() === PHP_SESSION_ACTIVE ? ($_SESSION[\'_flash\'] ?? []) : [])): foreach($__activeFlashes as $type => $message): ?>',
         ];
 
         foreach ($map as $pattern => $replacement) {
@@ -95,10 +112,25 @@ final class DirectiveCompiler
         return $source;
     }
 
-    /** Directives that take a parenthesized argument list — @if, @elseif, @foreach, @include, @island, @error. */
+    /** Directives that take a parenthesized argument list. */
     private function compileParenDirectives(string $source): string
     {
-        $pattern = '/@(if|elseif|foreach|include|island|error)\s*\(/';
+        $directives = [
+            'if', 'elseif', 'unless', 'when', 'has', 'missing',
+            'foreach', 'loop',
+            'layout', 'slot', 'renderSlot', 'push', 'prepend', 'stack', 'once',
+            'include', 'includeIf', 'includeWhen', 'includeUnless',
+            'island', 'islandLazy', 'broadcast',
+            'method', 'old', 'checked', 'selected', 'disabled', 'readonly', 'required', 'autofocus', 'hidden',
+            'class', 'style', 'js', 'window',
+            'error', 'flash',
+            'role', 'can',
+            'seo', 'title', 'meta', 'schema',
+            'svg', 'image', 'avatar', 'fileSize', 'truncate', 'plural', 'date', 'timeAgo', 'money',
+            'cache', 'benchmark', 'dump', 'dd',
+        ];
+
+        $pattern = '/@(' . implode('|', $directives) . ')\s*\(/';
         $offset = 0;
         $result = '';
 
@@ -121,24 +153,161 @@ final class DirectiveCompiler
     private function compileDirective(string $name, string $args): string
     {
         return match ($name) {
-            'if' => "<?php if({$args}): ?>",
-            'elseif' => "<?php elseif({$args}): ?>",
-            'foreach' => "<?php foreach({$args}): ?>",
-            'error' => "<?php if(isset(\$errors) && !empty(\$errors[{$args}])): \$message = is_array(\$errors[{$args}]) ? (\$errors[{$args}][0] ?? '') : \$errors[{$args}]; ?>",
-            'include' => $this->compileInclude($args),
-            'island' => $this->compileIsland($args),
+            // Control flow
+            'if'             => "<?php if({$args}): ?>",
+            'elseif'         => "<?php elseif({$args}): ?>",
+            'unless'         => "<?php if(!({$args})): ?>",
+            'when'           => "<?php if({$args}): ?>",
+            'has'            => "<?php if(isset({$args}) && !empty({$args})): ?>",
+            'missing'        => "<?php if(!isset({$args}) || empty({$args})): ?>",
+
+            // Iteration
+            'foreach'        => "<?php foreach({$args}): ?>",
+            'loop'           => $this->compileLoop($args),
+
+            // Layouts, Slots & Stacks
+            'layout'         => "<?php \$__spinxRenderer->startLayout({$args}); ?>",
+            'slot'           => "<?php \$__spinxRenderer->startSlot({$args}); ?>",
+            'renderSlot'     => "<?php echo \$__spinxRenderer->renderSlot({$args}); ?>",
+            'push'           => "<?php \$__spinxRenderer->startPush({$args}); ?>",
+            'prepend'        => "<?php \$__spinxRenderer->startPrepend({$args}); ?>",
+            'stack'          => "<?php echo \$__spinxRenderer->yieldStack({$args}); ?>",
+            'once'           => $this->compileOnce($args),
+
+            // Partials
+            'include'        => "<?php echo \$__spinxRenderer->render({$args}); ?>",
+            'includeIf'      => "<?php echo \$__spinxRenderer->renderIf({$args}); ?>",
+            'includeWhen'    => $this->compileIncludeWhen($args),
+            'includeUnless'  => $this->compileIncludeUnless($args),
+
+            // Islands & Realtime
+            'island'         => $this->compileIsland($args, false),
+            'islandLazy'     => $this->compileIsland($args, true),
+            'broadcast'      => $this->compileBroadcast($args),
+
+            // Form helpers & attributes
+            'method'         => "<?php echo \$__spinxRenderer->methodField({$args}); ?>",
+            'old'            => "<?php echo htmlspecialchars((string)\$__spinxRenderer->old({$args}), ENT_QUOTES, 'UTF-8'); ?>",
+            'checked'        => "<?php echo ({$args}) ? 'checked=\"checked\"' : ''; ?>",
+            'selected'       => "<?php echo ({$args}) ? 'selected=\"selected\"' : ''; ?>",
+            'disabled'       => "<?php echo ({$args}) ? 'disabled=\"disabled\"' : ''; ?>",
+            'readonly'       => "<?php echo ({$args}) ? 'readonly=\"readonly\"' : ''; ?>",
+            'required'       => "<?php echo ({$args}) ? 'required=\"required\"' : ''; ?>",
+            'autofocus'      => "<?php echo ({$args}) ? 'autofocus=\"autofocus\"' : ''; ?>",
+            'hidden'         => "<?php echo ({$args}) ? 'hidden=\"hidden\"' : ''; ?>",
+
+            // Styling & JavaScript
+            'class'          => "<?php echo \$__spinxRenderer->classAttr({$args}); ?>",
+            'style'          => "<?php echo \$__spinxRenderer->styleAttr({$args}); ?>",
+            'js'             => "<?php echo \$__spinxRenderer->js({$args}); ?>",
+            'window'         => $this->compileWindow($args),
+
+            // Errors & Alerts
+            'error'          => "<?php if(isset(\$errors) && !empty(\$errors[{$args}])): \$message = is_array(\$errors[{$args}]) ? (\$errors[{$args}][0] ?? '') : \$errors[{$args}]; ?>",
+            'flash'          => "<?php if(\$__msg = \$__spinxRenderer->flash({$args})): \$message = \$__msg; ?>",
+
+            // Auth & Permissions
+            'role'           => "<?php if(\$__spinxRenderer->hasRole({$args})): ?>",
+            'can'            => "<?php if(\$__spinxRenderer->can({$args})): ?>",
+
+            // SEO & Structured Data
+            'seo'            => "<?php echo \$__spinxRenderer->seo({$args}); ?>",
+            'title'          => "<title><?php echo htmlspecialchars((string)({$args}), ENT_QUOTES, 'UTF-8'); ?></title>",
+            'meta'           => $this->compileMeta($args),
+            'schema'         => $this->compileSchema($args),
+
+            // Media & Formatting
+            'svg'            => "<?php echo \$__spinxRenderer->svg({$args}); ?>",
+            'image'          => "<?php echo \$__spinxRenderer->image({$args}); ?>",
+            'avatar'         => "<?php echo \$__spinxRenderer->avatar({$args}); ?>",
+            'fileSize'       => "<?php echo \$__spinxRenderer->fileSize({$args}); ?>",
+            'truncate'       => "<?php echo \$__spinxRenderer->truncate({$args}); ?>",
+            'plural'         => "<?php echo \$__spinxRenderer->plural({$args}); ?>",
+            'date'           => "<?php echo \$__spinxRenderer->formatDate({$args}); ?>",
+            'timeAgo'        => "<?php echo \$__spinxRenderer->timeAgo({$args}); ?>",
+            'money'          => "<?php echo \$__spinxRenderer->formatMoney({$args}); ?>",
+
+            // Caching & Debugging
+            'cache'          => "<?php if(\$__spinxRenderer->cacheStart({$args})): ?>",
+            'benchmark'      => "<?php \$__spinx_bench_start = microtime(true); \$__spinx_bench_mem = memory_get_usage(); ?>",
+            'dump'           => "<?php if(class_exists(\\Spinx\\Support\\Dumper::class)){ \\Spinx\\Support\\Dumper::dump({$args}); } else { var_dump({$args}); } ?>",
+            'dd'             => "<?php if(class_exists(\\Spinx\\Support\\Dumper::class)){ \\Spinx\\Support\\Dumper::dd({$args}); } else { var_dump({$args}); exit(1); } ?>",
+
+            default          => "@{$name}({$args})",
         };
     }
 
-    private function compileInclude(string $args): string
+    private function compileLoop(string $args): string
     {
-        // @include('partial', ['x' => 1]) -> render('partial', ['x' => 1])
-        // Data is explicit, never auto-merged from the parent scope — a
-        // partial's inputs should be readable from its @include call alone.
-        return "<?php echo \$__spinxRenderer->render({$args}); ?>";
+        // Support: $items as $item  OR  $items as $key => $item
+        if (preg_match('/^\s*(.+?)\s+as\s+(.+)$/s', $args, $m)) {
+            $target = $m[1];
+            $asPart = $m[2];
+
+            return "<?php \$__loop_t = {$target}; if(!empty(\$__loop_t)): \$__loop_total = is_countable(\$__loop_t) ? count(\$__loop_t) : 0; \$__loop_i = 0; foreach(\$__loop_t as {$asPart}): \$loop = (object)['index' => \$__loop_i, 'iteration' => \$__loop_i + 1, 'first' => \$__loop_i === 0, 'last' => \$__loop_i === \$__loop_total - 1, 'even' => (\$__loop_i % 2) === 0, 'odd' => (\$__loop_i % 2) !== 0, 'count' => \$__loop_total]; \$__loop_i++; ?>";
+        }
+
+        return "<?php foreach({$args}): ?>";
     }
 
-    private function compileIsland(string $args): string
+    private function compileOnce(string $args): string
+    {
+        $id = trim($args, " \t\n\r\0\x0B'\"");
+        if ($id === '') {
+            $id = md5((string) mt_rand());
+        }
+
+        return "<?php if(!\$__spinxRenderer->hasRenderedOnce('" . addslashes($id) . "')): ?>";
+    }
+
+    private function compileIncludeWhen(string $args): string
+    {
+        $parts = $this->splitTopLevelArgs($args);
+        $cond = $parts[0] ?? 'true';
+        $view = $parts[1] ?? "''";
+        $data = $parts[2] ?? '[]';
+
+        return "<?php if({$cond}){ echo \$__spinxRenderer->render({$view}, {$data}); } ?>";
+    }
+
+    private function compileIncludeUnless(string $args): string
+    {
+        $parts = $this->splitTopLevelArgs($args);
+        $cond = $parts[0] ?? 'false';
+        $view = $parts[1] ?? "''";
+        $data = $parts[2] ?? '[]';
+
+        return "<?php if(!({$cond})){ echo \$__spinxRenderer->render({$view}, {$data}); } ?>";
+    }
+
+    private function compileWindow(string $args): string
+    {
+        $parts = $this->splitTopLevelArgs($args);
+        $name = trim($parts[0] ?? 'SpinxState', " \t\n\r\0\x0B'\"");
+        $data = $parts[1] ?? '[]';
+
+        return "<script>window.{$name} = <?php echo \$__spinxRenderer->js({$data}); ?>;</script>";
+    }
+
+    private function compileMeta(string $args): string
+    {
+        $parts = $this->splitTopLevelArgs($args);
+        $name = $parts[0] ?? "''";
+        $content = $parts[1] ?? "''";
+
+        return "<meta name=\"<?php echo htmlspecialchars((string)({$name}), ENT_QUOTES, 'UTF-8'); ?>\" content=\"<?php echo htmlspecialchars((string)({$content}), ENT_QUOTES, 'UTF-8'); ?>\">";
+    }
+
+    private function compileSchema(string $args): string
+    {
+        $parts = $this->splitTopLevelArgs($args);
+        $type = $parts[0] ?? "'WebPage'";
+        $data = $parts[1] ?? '[]';
+
+        return "<script type=\"application/ld+json\"><?php echo json_encode(array_merge(['@context' => 'https://schema.org', '@type' => {$type}], (array)({$data})), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>";
+    }
+
+    private function compileIsland(string $args, bool $lazy): string
     {
         $parts = $this->splitTopLevelArgs($args);
         $nameArg = trim($parts[0] ?? '', " \t\n\r\0\x0B'\"");
@@ -149,15 +318,23 @@ final class DirectiveCompiler
         }
 
         $safeName = htmlspecialchars($nameArg, ENT_QUOTES, 'UTF-8');
+        $lazyAttr = $lazy ? ' data-spinx-lazy="true"' : '';
 
-        return '<div data-spinx-island="' . $safeName . '" data-spinx-props="<?php echo htmlspecialchars(json_encode(' .
+        return '<div data-spinx-island="' . $safeName . '"' . $lazyAttr . ' data-spinx-props="<?php echo htmlspecialchars(json_encode(' .
             $propsExpr . ', JSON_THROW_ON_ERROR), ENT_QUOTES, \'UTF-8\'); ?>"></div>';
     }
 
+    private function compileBroadcast(string $args): string
+    {
+        $parts = $this->splitTopLevelArgs($args);
+        $channel = $parts[0] ?? "''";
+        $event = $parts[1] ?? "''";
+
+        return '<div data-spinx-broadcast-channel="<?php echo htmlspecialchars((string)(' . $channel . '), ENT_QUOTES, \'UTF-8\'); ?>" data-spinx-broadcast-event="<?php echo htmlspecialchars((string)(' . $event . '), ENT_QUOTES, \'UTF-8\'); ?>" style="display:none;"></div>';
+    }
+
     /**
-     * Scans forward from an opening '(' at $openPos to find its matching
-     * ')', tracking nesting depth and skipping over quoted strings (so a
-     * ')' inside a string literal doesn't prematurely close the directive).
+     * Scans forward from an opening '(' at $openPos to find its matching ')'.
      */
     private function findMatchingParen(string $source, int $openPos): int
     {
@@ -198,10 +375,7 @@ final class DirectiveCompiler
     }
 
     /**
-     * Splits a directive's argument string on top-level commas only —
-     * commas inside nested (), [], {}, or quoted strings don't split.
-     * Used to separate @island('Name', ['prop' => $x]) into its two
-     * top-level arguments without breaking on the comma inside the array.
+     * Splits a directive's argument string on top-level commas only.
      *
      * @return string[]
      */
