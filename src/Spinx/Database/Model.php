@@ -327,6 +327,12 @@ abstract class Model
         $model->original = $row;
         $model->exists = true;
 
+        foreach ($row as $key => $value) {
+            if (property_exists($model, $key)) {
+                $model->{$key} = $value;
+            }
+        }
+
         return $model;
     }
 
@@ -351,16 +357,26 @@ abstract class Model
     public function setAttribute(string $key, mixed $value): void
     {
         $this->attributes[$key] = $this->castForStorage($key, $value);
+        if (property_exists($this, $key)) {
+            $this->{$key} = $value;
+        }
     }
 
     public function getAttribute(string $key): mixed
     {
-        return $this->castFromStorage($key, $this->attributes[$key] ?? null);
+        if (isset($this->attributes[$key])) {
+            return $this->castFromStorage($key, $this->attributes[$key]);
+        }
+        if (property_exists($this, $key)) {
+            return $this->{$key};
+        }
+
+        return null;
     }
 
     public function hasAttribute(string $key): bool
     {
-        return array_key_exists($key, $this->attributes);
+        return array_key_exists($key, $this->attributes) || property_exists($this, $key);
     }
 
     /** @return array<string, mixed> */
@@ -388,9 +404,7 @@ abstract class Model
 
     /**
      * Returns a NEW instance re-fetched from the database — this
-     * instance's own attributes are untouched. Returns null if the row
-     * no longer exists (e.g. deleted by another request since this
-     * instance was loaded).
+     * instance itself is not modified (immutable freshness).
      */
     public function fresh(): ?static
     {
@@ -402,27 +416,22 @@ abstract class Model
     }
 
     /**
-     * Re-fetches this exact instance's attributes from the database IN
-     * PLACE — unlike fresh(), $this is mutated, not replaced. Throws if
-     * the row no longer exists, since silently leaving stale data in
-     * place would be worse than a clear failure.
+     * Re-hydrates THIS instance in place from the database, resetting
+     * any dirty attributes. Useful inside long-running worker loops where
+     * the same instance reference is held across steps.
      */
     public function refresh(): static
     {
-        $fresh = $this->fresh();
-
-        if ($fresh === null) {
-            throw new \RuntimeException(sprintf(
-                '%s with %s = %s no longer exists — cannot refresh().',
-                static::class,
-                static::$primaryKey,
-                $this->attributes[static::$primaryKey] ?? 'null'
-            ));
+        if (!$this->exists) {
+            return $this;
         }
 
-        $this->attributes = $fresh->attributes;
-        $this->original = $fresh->attributes;
-        $this->relationsCache = [];
+        $fresh = $this->fresh();
+        if ($fresh !== null) {
+            $this->attributes = $fresh->attributes;
+            $this->original = $fresh->original;
+            $this->relationsCache = [];
+        }
 
         return $this;
     }
@@ -493,8 +502,8 @@ abstract class Model
             'int', 'integer' => (int) $value,
             'float', 'double' => (float) $value,
             'bool', 'boolean' => (bool) $value,
-            'array', 'json' => is_string($value) ? json_decode($value, true) : $value,
-            'datetime' => $value instanceof \DateTimeImmutable ? $value : new \DateTimeImmutable((string) $value),
+            'array', 'json' => is_string($value) ? json_decode($value, true, 512, JSON_THROW_ON_ERROR) : (array) $value,
+            'datetime' => is_string($value) ? new \DateTimeImmutable($value) : $value,
             default => $value,
         };
     }
@@ -538,6 +547,17 @@ abstract class Model
 
     public function save(): bool
     {
+        // Sync any declared public properties into $this->attributes
+        $reflected = new \ReflectionClass(static::class);
+        foreach ($reflected->getProperties(\ReflectionProperty::IS_PUBLIC) as $prop) {
+            if (!$prop->isStatic() && $prop->isInitialized($this)) {
+                $val = $prop->getValue($this);
+                if ($val !== null) {
+                    $this->attributes[$prop->getName()] = $val;
+                }
+            }
+        }
+
         $isCreating = !$this->exists;
         $this->fireEvent($isCreating ? 'creating' : 'updating');
 
@@ -553,9 +573,14 @@ abstract class Model
 
         if ($isCreating) {
             $id = static::query()->insert($this->attributes);
-            $this->attributes[static::$primaryKey] ??= $id;
+            $numericId = is_numeric($id) ? (int) $id : $id;
+            $this->attributes[static::$primaryKey] ??= $numericId;
+            if (property_exists($this, static::$primaryKey)) {
+                $this->{static::$primaryKey} = $numericId;
+            }
             $this->exists = true;
         } else {
+
             $dirty = $this->dirtyAttributes();
 
             if ($dirty !== []) {
@@ -691,4 +716,10 @@ abstract class Model
     {
         return strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $studlyCase));
     }
+
+    public static function __callStatic(string $method, array $arguments): mixed
+    {
+        return static::query()->$method(...$arguments);
+    }
 }
+

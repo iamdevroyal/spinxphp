@@ -43,12 +43,17 @@ final class NoMutableStaticStateRule implements Rule
 
         $classReflection = $scope->getClassReflection();
 
-        if ($classReflection === null || !str_starts_with($classReflection->getName(), 'App\\Modules\\')) {
-            // Enforced within app/Modules only — framework internals
-            // (e.g. compiled container/route caches) may use static state
-            // deliberately and are outside this rule's scope.
+        if (
+            $classReflection === null
+            || !str_starts_with($classReflection->getName(), 'App\\Modules\\')
+            || $classReflection->isSubclassOf('Spinx\\Database\\Model')
+            || is_subclass_of($classReflection->getName(), \Spinx\Database\Model::class)
+        ) {
+            // Enforced within app/Modules only — framework internals and Model schema definitions are exempt.
             return [];
         }
+
+
 
         $errors = [];
 

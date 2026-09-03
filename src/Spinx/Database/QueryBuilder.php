@@ -408,6 +408,41 @@ final class QueryBuilder
         return (int) $countQuery->executeQuery()->fetchOne();
     }
 
+    public function sum(string $column): int|float
+    {
+        $sumQuery = clone $this->query;
+        $sumQuery->select("COALESCE(SUM({$column}), 0) AS aggregate")->setMaxResults(null)->setFirstResult(0);
+        $val = $sumQuery->executeQuery()->fetchOne();
+
+        return is_numeric($val) ? (str_contains((string) $val, '.') ? (float) $val : (int) $val) : 0;
+    }
+
+    public function avg(string $column): ?float
+    {
+        $avgQuery = clone $this->query;
+        $avgQuery->select("AVG({$column}) AS aggregate")->setMaxResults(null)->setFirstResult(0);
+        $val = $avgQuery->executeQuery()->fetchOne();
+
+        return $val !== null ? (float) $val : null;
+    }
+
+    public function min(string $column): mixed
+    {
+        $minQuery = clone $this->query;
+        $minQuery->select("MIN({$column}) AS aggregate")->setMaxResults(null)->setFirstResult(0);
+
+        return $minQuery->executeQuery()->fetchOne();
+    }
+
+    public function max(string $column): mixed
+    {
+        $maxQuery = clone $this->query;
+        $maxQuery->select("MAX({$column}) AS aggregate")->setMaxResults(null)->setFirstResult(0);
+
+        return $maxQuery->executeQuery()->fetchOne();
+    }
+
+
     /** Single column across every matching row — e.g. pluck('email') -> ['a@x.com', 'b@x.com']. Casts still apply when modelClass is set. */
     public function pluck(string $column): array
     {

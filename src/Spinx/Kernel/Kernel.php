@@ -187,6 +187,11 @@ final class Kernel
                 $parameters = $matcher->match($req->getPathInfo());
             } catch (ResourceNotFoundException) {
                 return new Response('Not Found', 404);
+            } catch (\Symfony\Component\Routing\Exception\MethodNotAllowedException $e) {
+                if ($req->getMethod() === 'OPTIONS') {
+                    return new Response('', 204);
+                }
+                return new Response('Method Not Allowed', 405);
             }
 
             $controller = $parameters['_controller'] ?? null;
@@ -214,16 +219,21 @@ final class Kernel
         };
 
         try {
+            $corsMiddleware = new \Spinx\Http\Middleware\CorsMiddleware();
+            $runner = fn (Request $r): Response => $corsMiddleware->process($r, $dispatch);
+
             if ($this->container->has(\Spinx\Session\SessionInterface::class)) {
                 $session = $this->container->get(\Spinx\Session\SessionInterface::class);
                 $sessionMiddleware = new \Spinx\Session\SessionMiddleware($session);
 
-                return $sessionMiddleware->process($request, $dispatch);
+                return $sessionMiddleware->process($request, $runner);
             }
 
-            return $dispatch($request);
+            return $runner($request);
         } catch (\Throwable $e) {
-            return $this->handleException($e, $request);
+            $response = $this->handleException($e, $request);
+            $corsMiddleware = new \Spinx\Http\Middleware\CorsMiddleware();
+            return $corsMiddleware->process($request, fn (): Response => $response);
         } finally {
             // Guarantee zero cross-request memory leak in persistent workers
             \Spinx\Http\Request::setCurrentRequest(null);
@@ -236,14 +246,28 @@ final class Kernel
 
     private function handleException(\Throwable $e, Request $request): Response
     {
+        $isJson = $request->isXmlHttpRequest()
+            || str_contains((string) $request->headers->get('Accept', ''), 'application/json')
+            || str_contains((string) $request->headers->get('Content-Type', ''), 'application/json')
+            || str_starts_with($request->getPathInfo(), '/api/');
+
+        if ($e instanceof \Spinx\Validation\ValidationException) {
+            return new Response(
+                (string) json_encode([
+                    'message' => 'The given data was invalid.',
+                    'errors'  => $e->errors(),
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+                422,
+                ['Content-Type' => 'application/json']
+            );
+        }
+
         \Spinx\Log\Log::error($e->getMessage(), [
             'exception' => $e,
             'method'    => $request->getMethod(),
             'uri'       => $request->getRequestUri(),
             'ip'        => $request->getClientIp(),
         ]);
-
-        $isJson = $request->isXmlHttpRequest() || str_contains((string) $request->headers->get('Accept', ''), 'application/json');
 
         if ($isJson) {
             $payload = [

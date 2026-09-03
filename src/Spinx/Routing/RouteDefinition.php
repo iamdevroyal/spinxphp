@@ -25,14 +25,23 @@ final class RouteDefinition
     }
 
     /**
-     * @param string[] $aliases Middleware aliases registered in the 'middlewares' closure
+     * @param string|string[] ...$aliases Middleware aliases registered in the 'middlewares' closure
      */
-    public function middleware(array $aliases): static
+    public function middleware(string|array ...$aliases): static
     {
-        $this->middlewareAliases = $aliases;
+        $flattened = [];
+        foreach ($aliases as $alias) {
+            if (is_array($alias)) {
+                $flattened = array_merge($flattened, $alias);
+            } else {
+                $flattened[] = (string) $alias;
+            }
+        }
+        $this->middlewareAliases = array_merge($this->middlewareAliases, $flattened);
 
         return $this;
     }
+
 
     /**
      * @param string|array{0: string|object, 1: string} $aliasOrClass Controller alias, FQCN, or [Class, method]
